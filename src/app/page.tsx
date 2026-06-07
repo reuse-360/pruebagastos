@@ -1,51 +1,36 @@
-import { Button } from "@/components/ui/button";
+import { TransactionForm } from "@/components/TransactionForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export default function Home() {
   return (
-    <main className="container mx-auto px-4 py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Gastos App</h1>
-        <Badge variant="outline">Bienvenido</Badge>
-      </div>
+    <main className="container mx-auto max-w-lg px-4 py-8 space-y-6">
+      <h1 className="text-2xl font-bold">Gastos App</h1>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total del mes
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Gastos del mes
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">$0.00</p>
+            <p className="text-xl font-bold text-red-600">—</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Ingresos
+          <CardHeader className="pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Transacciones
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold text-green-600">$0.00</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Gastos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-red-600">$0.00</p>
+            <p className="text-xl font-bold">—</p>
           </CardContent>
         </Card>
       </div>
 
-      <Button>Agregar gasto</Button>
+      <TransactionForm />
     </main>
   );
 }

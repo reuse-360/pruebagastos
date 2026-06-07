@@ -34,17 +34,39 @@ export interface Database {
         Row: HouseholdMember;
         Insert: Omit<HouseholdMember, "id">;
         Update: Partial<Omit<HouseholdMember, "id">>;
+        Relationships: [];
       };
       expense_categories: {
         Row: ExpenseCategory;
         Insert: Omit<ExpenseCategory, "id">;
         Update: Partial<Omit<ExpenseCategory, "id">>;
+        Relationships: [];
       };
       transactions: {
         Row: Transaction;
         Insert: Omit<Transaction, "id" | "created_at">;
         Update: Partial<Omit<Transaction, "id" | "created_at">>;
+        Relationships: [
+          {
+            foreignKeyName: "transactions_category_id_fkey";
+            columns: ["category_id"];
+            isOneToOne: false;
+            referencedRelation: "expense_categories";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "transactions_paid_by_member_id_fkey";
+            columns: ["paid_by_member_id"];
+            isOneToOne: false;
+            referencedRelation: "household_members";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
