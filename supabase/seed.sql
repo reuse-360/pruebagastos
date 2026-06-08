@@ -1,3 +1,8 @@
+-- Miembros del hogar
+insert into household_members (name, monthly_income) values
+  ('Gon',    0),
+  ('Paulina', 0);
+
 -- Categorías compartidas
 insert into expense_categories (name, is_shared) values
   ('Dividendo',  true),
