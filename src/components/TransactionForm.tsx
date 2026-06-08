@@ -6,15 +6,6 @@ import type { ExpenseCategory, HouseholdMember } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const SPLIT_GON = 0.64;
@@ -32,6 +23,9 @@ function formatCLP(amount: number) {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+const nativeSelectClass =
+  "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
 export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
@@ -127,30 +121,30 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
 
           {/* Categoría */}
           <div className="space-y-1.5">
-            <Label>Categoría</Label>
-            <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "")} required>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona una categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Compartidas</SelectLabel>
-                  {sharedCategories.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-                <SelectGroup>
-                  <SelectLabel>Personales</SelectLabel>
-                  {personalCategories.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="categoryId">Categoría</Label>
+            <select
+              id="categoryId"
+              className={nativeSelectClass}
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              required
+            >
+              <option value="">Selecciona una categoría</option>
+              <optgroup label="Compartidas">
+                {sharedCategories.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Personales">
+                {personalCategories.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
           </div>
 
           {/* Fecha */}
@@ -167,19 +161,21 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
 
           {/* Quién pagó */}
           <div className="space-y-1.5">
-            <Label>¿Quién pagó?</Label>
-            <Select value={paidById} onValueChange={(v) => setPaidById(v ?? "")} required>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona quién pagó" />
-              </SelectTrigger>
-              <SelectContent>
-                {members.map((m) => (
-                  <SelectItem key={m.id} value={String(m.id)}>
-                    {m.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="paidById">¿Quién pagó?</Label>
+            <select
+              id="paidById"
+              className={nativeSelectClass}
+              value={paidById}
+              onChange={(e) => setPaidById(e.target.value)}
+              required
+            >
+              <option value="">Selecciona quién pagó</option>
+              {members.map((m) => (
+                <option key={m.id} value={String(m.id)}>
+                  {m.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Descripción */}
