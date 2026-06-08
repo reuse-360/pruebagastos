@@ -30,6 +30,7 @@ const nativeSelectClass =
 export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -56,15 +57,13 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
     ]).then(([{ data: cats }, { data: mems }]) => {
       if (cats) setCategories(cats as ExpenseCategory[]);
       if (mems) setMembers(mems as HouseholdMember[]);
+      setLoadingData(false);
     });
   }, []);
 
   const selectedCategory = categories.find((c) => c.id === Number(categoryId));
   const numericAmount = parseFloat(amount.replace(/\./g, "").replace(",", ".")) || 0;
   const isShared = selectedCategory?.is_shared ?? false;
-
-  const sharedCategories = categories.filter((c) => c.is_shared);
-  const personalCategories = categories.filter((c) => !c.is_shared);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,22 +127,16 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
               required
+              disabled={loadingData}
             >
-              <option value="">Selecciona una categoría</option>
-              <optgroup label="Compartidas">
-                {sharedCategories.map((c) => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Personales">
-                {personalCategories.map((c) => (
-                  <option key={c.id} value={String(c.id)}>
-                    {c.name}
-                  </option>
-                ))}
-              </optgroup>
+              <option value="">
+                {loadingData ? "Cargando…" : "Selecciona una categoría"}
+              </option>
+              {categories.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.name}{c.is_shared ? " (compartida)" : " (personal)"}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -168,8 +161,11 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
               value={paidById}
               onChange={(e) => setPaidById(e.target.value)}
               required
+              disabled={loadingData}
             >
-              <option value="">Selecciona quién pagó</option>
+              <option value="">
+                {loadingData ? "Cargando…" : "Selecciona quién pagó"}
+              </option>
               {members.map((m) => (
                 <option key={m.id} value={String(m.id)}>
                   {m.name}
