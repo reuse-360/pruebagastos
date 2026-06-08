@@ -54,14 +54,14 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
         .select("*")
         .eq("active", true)
         .order("name"),
-    ]).then(([{ data: cats }, { data: mems }]) => {
-      if (cats) setCategories(cats as ExpenseCategory[]);
-      if (mems) setMembers(mems as HouseholdMember[]);
+    ]).then(([catsResult, memsResult]) => {
+      if (catsResult.data) setCategories(catsResult.data as ExpenseCategory[]);
+      if (memsResult.data) setMembers(memsResult.data as HouseholdMember[]);
       setLoadingData(false);
     });
   }, []);
 
-  const selectedCategory = categories.find((c) => c.id === Number(categoryId));
+  const selectedCategory = categories.find((c) => c.id === categoryId);
   const numericAmount = parseFloat(amount.replace(/\./g, "").replace(",", ".")) || 0;
   const isShared = selectedCategory?.is_shared ?? false;
 
@@ -76,8 +76,8 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
       amount: numericAmount,
       transaction_date: date,
       description: description.trim() || null,
-      category_id: Number(categoryId),
-      paid_by_member_id: Number(paidById),
+      category_id: categoryId,
+      paid_by_member_id: paidById,
     }]);
 
     setSubmitting(false);

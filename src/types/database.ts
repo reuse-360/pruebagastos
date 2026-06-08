@@ -1,24 +1,24 @@
 export interface HouseholdMember {
-  id: number;
+  id: string;
   name: string;
   monthly_income: number;
   active: boolean;
 }
 
 export interface ExpenseCategory {
-  id: number;
+  id: string;
   name: string;
   is_shared: boolean;
   active: boolean;
 }
 
 export interface Transaction {
-  id: number;
+  id: string;
   amount: number;
   transaction_date: string;
   description: string | null;
-  category_id: number | null;
-  paid_by_member_id: number | null;
+  category_id: string | null;
+  paid_by_member_id: string | null;
   created_at: string;
 }
 
