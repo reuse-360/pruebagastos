@@ -88,7 +88,7 @@ function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
   const accentClass = isPau ? "text-amber-600" : "text-indigo-600";
   const shareLabel = isPau ? "Total Pau" : "Total Gon";
   const total = rows.reduce((s, r) => s + r.valor_persona, 0);
-  const valorOriginalTotal = rows.reduce((s, r) => s + (r.quien_pago === "ambos" ? r.valor_original : 0), 0);
+  const valorOriginalTotal = rows.reduce((s, r) => s + r.valor_original, 0);
 
   return (
     <Card>
@@ -115,9 +115,7 @@ function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
                     <td className="px-3 py-2 font-medium whitespace-nowrap">{r.categoria}</td>
                     <td className="px-3 py-2 text-muted-foreground">{r.descripcion ?? ""}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
-                      {isShared
-                        ? formatCLP(r.valor_original)
-                        : <span className="text-muted-foreground">—</span>}
+                      {formatCLP(r.valor_original)}
                     </td>
                     <td className={`px-3 py-2 text-right font-medium whitespace-nowrap ${accentClass}`}>
                       {formatCLP(r.valor_persona)}
@@ -133,7 +131,7 @@ function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
               <tr className="border-t bg-muted/30 text-sm font-semibold">
                 <td colSpan={2} className="px-3 py-2">TOTAL</td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">
-                  {valorOriginalTotal > 0 ? formatCLP(valorOriginalTotal) : ""}
+                  {formatCLP(valorOriginalTotal)}
                 </td>
                 <td className={`px-3 py-2 text-right whitespace-nowrap font-bold ${accentClass}`}>
                   {formatCLP(total)}
@@ -174,8 +172,8 @@ export default function ResumenPage() {
   const isPau = person === "pau";
   const rows = isPau ? pauRows : gonRows;
 
-  const valorOriginalTotal = rows.reduce((s, r) => s + (r.quien_pago === "ambos" ? r.valor_original : 0), 0);
   const totalPersona = rows.reduce((s, r) => s + r.valor_persona, 0);
+  const valorOriginalTotal = rows.reduce((s, r) => s + r.valor_original, 0);
 
   async function handleCopy() {
     const text = buildCopyText(month, year, rows, person);
@@ -203,7 +201,7 @@ export default function ResumenPage() {
           </CardHeader>
           <CardContent>
             <p className="text-lg font-bold">
-              {loading ? "—" : valorOriginalTotal > 0 ? formatCLP(valorOriginalTotal) : formatCLP(totalPersona)}
+              {loading ? "—" : formatCLP(valorOriginalTotal)}
             </p>
           </CardContent>
         </Card>
