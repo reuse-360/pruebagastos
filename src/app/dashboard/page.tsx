@@ -5,38 +5,31 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchMonthlySummary, type CategorySummary } from "@/lib/queries";
-import { formatCLP, pauShare, MESES } from "@/lib/constants";
+import { fetchDashboardData, type CategoryTotal } from "@/lib/queries";
+import { formatCLP, MESES } from "@/lib/constants";
 
 const nativeSelectClass =
   "flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+const COLORS = { ambos: "#6366f1", gon: "#3b82f6", pau: "#f59e0b" };
 
 function prevMonth(year: number, month: number) {
   return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
 }
 
-const COLORS = { shared: "#6366f1", personal: "#f59e0b", pau: "#ec4899" };
-
-function getBarColor(cat: CategorySummary) {
-  if (cat.is_shared) return COLORS.shared;
-  if (cat.name === "Pau") return COLORS.pau;
-  return COLORS.personal;
-}
-
 interface CustomTooltipProps {
   active?: boolean;
-  payload?: Array<{ payload: CategorySummary & { value: number } }>;
+  payload?: Array<{ payload: CategoryTotal & { value: number } }>;
 }
 
 function CustomTooltip({ active, payload }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
-  const share = pauShare(d.total, d.is_shared, d.name);
   return (
     <div className="rounded-lg border bg-background p-2 text-xs shadow-md space-y-0.5">
       <p className="font-semibold">{d.name}</p>
       <p>Total: {formatCLP(d.total)}</p>
-      {share > 0 && <p className="text-amber-600">Pau: {formatCLP(share)}</p>}
+      <p className="text-muted-foreground capitalize">{d.type === "ambos" ? "Compartido" : d.type === "gon" ? "Solo Gon" : "Solo Pau"}</p>
     </div>
   );
 }
@@ -45,8 +38,10 @@ export default function DashboardPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [categories, setCategories] = useState<CategorySummary[]>([]);
-  const [totalMonth, setTotalMonth] = useState(0);
+  const [totalMes, setTotalMes] = useState(0);
+  const [totalGon, setTotalGon] = useState(0);
+  const [totalPau, setTotalPau] = useState(0);
+  const [categories, setCategories] = useState<CategoryTotal[]>([]);
   const [totalPrev, setTotalPrev] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,22 +49,20 @@ export default function DashboardPage() {
     setLoading(true);
     const prev = prevMonth(year, month);
     const [curr, previous] = await Promise.all([
-      fetchMonthlySummary(year, month),
-      fetchMonthlySummary(prev.year, prev.month),
+      fetchDashboardData(year, month),
+      fetchDashboardData(prev.year, prev.month),
     ]);
+    setTotalMes(curr.totalMes);
+    setTotalGon(curr.totalGon);
+    setTotalPau(curr.totalPau);
     setCategories(curr.categories);
-    setTotalMonth(curr.totalMonth);
-    setTotalPrev(previous.totalMonth);
+    setTotalPrev(previous.totalMes);
     setLoading(false);
   }, [year, month]);
 
   useEffect(() => { load(); }, [load]);
 
-  const totalShared = categories.filter((c) => c.is_shared).reduce((s, c) => s + c.total, 0);
-  const totalPersonal = categories.filter((c) => !c.is_shared).reduce((s, c) => s + c.total, 0);
-  const totalPauOwes = categories.reduce((s, c) => s + pauShare(c.total, c.is_shared, c.name), 0);
-  const monthDiff = totalPrev !== null ? totalMonth - totalPrev : null;
-
+  const monthDiff = totalPrev !== null ? totalMes - totalPrev : null;
   const chartData = categories.map((c) => ({ ...c, value: c.total }));
 
   return (
@@ -94,14 +87,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Cards */}
       <div className="grid grid-cols-2 gap-3">
         <Card>
           <CardHeader className="pb-1">
             <CardTitle className="text-xs text-muted-foreground">Total del mes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-bold">{loading ? "—" : formatCLP(totalMonth)}</p>
+            <p className="text-lg font-bold">{loading ? "—" : formatCLP(totalMes)}</p>
             {monthDiff !== null && !loading && (
               <p className={`text-xs mt-0.5 ${monthDiff > 0 ? "text-red-500" : "text-green-600"}`}>
                 {monthDiff > 0 ? "▲" : "▼"} {formatCLP(Math.abs(monthDiff))} vs mes anterior
@@ -111,38 +103,42 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground">Pau debe</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground">Total Pau</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-bold text-amber-600">{loading ? "—" : formatCLP(totalPauOwes)}</p>
+            <p className="text-lg font-bold text-amber-600">{loading ? "—" : formatCLP(totalPau)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground">Compartidos</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground">Total Gon</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-base font-semibold text-indigo-600">{loading ? "—" : formatCLP(totalShared)}</p>
+            <p className="text-base font-semibold text-indigo-600">{loading ? "—" : formatCLP(totalGon)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground">Personales</CardTitle>
+            <CardTitle className="text-xs text-muted-foreground">Categorías</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-base font-semibold text-amber-500">{loading ? "—" : formatCLP(totalPersonal)}</p>
+            <p className="text-base font-semibold">{loading ? "—" : categories.length}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Leyenda */}
       <div className="flex gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.shared }} />Compartido</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.personal }} />Personal</span>
-        <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.pau }} />Pau</span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.ambos }} />Compartido
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.gon }} />Solo Gon
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.pau }} />Solo Pau
+        </span>
       </div>
 
-      {/* Gráfico */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Gasto por categoría</CardTitle>
@@ -156,22 +152,12 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 60, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 10 }}
-                  angle={-45}
-                  textAnchor="end"
-                  interval={0}
-                />
-                <YAxis
-                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
-                  tick={{ fontSize: 10 }}
-                  width={44}
-                />
+                <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-45} textAnchor="end" interval={0} />
+                <YAxis tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 10 }} width={44} />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="value" radius={[3, 3, 0, 0]}>
                   {chartData.map((entry) => (
-                    <Cell key={entry.name} fill={getBarColor(entry)} />
+                    <Cell key={entry.name} fill={COLORS[entry.type]} />
                   ))}
                 </Bar>
               </BarChart>

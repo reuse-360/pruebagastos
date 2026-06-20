@@ -14,8 +14,3 @@ export function formatCLP(amount: number) {
   }).format(amount);
 }
 
-export function pauShare(total: number, is_shared: boolean, name: string): number {
-  if (is_shared) return total * SPLIT_PAU;
-  if (name === "Pau") return total;
-  return 0;
-}

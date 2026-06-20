@@ -1,17 +1,20 @@
 import { supabase } from "./supabase";
 
-export interface CategorySummary {
-  name: string;
-  is_shared: boolean;
-  total: number;
+// Fila unificada para la vista de resumen (Gon o Pau)
+export interface TxRow {
+  fecha: string;
+  quien_pago: string;
+  categoria: string;
+  descripcion: string | null;
+  valor_original: number;
+  valor_persona: number; // valor_gon o valor_pau según la tabla
 }
 
-export interface TransactionDetail {
-  amount: number;
-  description: string | null;
-  transaction_date: string;
-  category_name: string;
-  is_shared: boolean;
+// Categoría agregada para el dashboard
+export interface CategoryTotal {
+  name: string;
+  total: number;
+  type: "ambos" | "gon" | "pau";
 }
 
 function dateRange(year: number, month: number) {
@@ -21,70 +24,101 @@ function dateRange(year: number, month: number) {
   return { firstDay, lastDay };
 }
 
-type Row = {
-  amount: number;
-  description: string | null;
-  transaction_date: string;
-  expense_categories: { name: string; is_shared: boolean } | { name: string; is_shared: boolean }[] | null;
-};
+export async function fetchGastosGon(year: number, month: number): Promise<{ rows: TxRow[]; error: unknown }> {
+  const { firstDay, lastDay } = dateRange(year, month);
+  const { data, error } = await supabase
+    .from("gastos_gon")
+    .select("fecha, quien_pago, categoria, descripcion, valor_original, valor_gon")
+    .gte("fecha", firstDay)
+    .lte("fecha", lastDay)
+    .order("fecha", { ascending: true });
 
-function resolveCategory(raw: Row["expense_categories"]) {
-  return Array.isArray(raw) ? raw[0] : raw;
+  if (error || !data) return { rows: [], error };
+
+  const rows: TxRow[] = (data as Array<{
+    fecha: string; quien_pago: string; categoria: string;
+    descripcion: string | null; valor_original: number; valor_gon: number;
+  }>).map((r) => ({
+    fecha: r.fecha,
+    quien_pago: r.quien_pago,
+    categoria: r.categoria,
+    descripcion: r.descripcion,
+    valor_original: r.valor_original,
+    valor_persona: r.valor_gon,
+  }));
+
+  return { rows, error: null };
 }
 
-export async function fetchMonthlySummary(year: number, month: number) {
+export async function fetchGastosPau(year: number, month: number): Promise<{ rows: TxRow[]; error: unknown }> {
   const { firstDay, lastDay } = dateRange(year, month);
-
   const { data, error } = await supabase
-    .from("transactions")
-    .select("amount, expense_categories(name, is_shared)")
-    .gte("transaction_date", firstDay)
-    .lte("transaction_date", lastDay);
+    .from("gastos_pau")
+    .select("fecha, quien_pago, categoria, descripcion, valor_original, valor_pau")
+    .gte("fecha", firstDay)
+    .lte("fecha", lastDay)
+    .order("fecha", { ascending: true });
 
-  if (error || !data) return { categories: [], totalMonth: 0, error };
+  if (error || !data) return { rows: [], error };
 
-  const map = new Map<string, CategorySummary>();
-  for (const t of data as unknown as Row[]) {
-    const cat = resolveCategory(t.expense_categories);
-    if (!cat) continue;
-    const existing = map.get(cat.name);
-    if (existing) {
-      existing.total += t.amount;
-    } else {
-      map.set(cat.name, { name: cat.name, is_shared: cat.is_shared, total: t.amount });
-    }
-  }
+  const rows: TxRow[] = (data as Array<{
+    fecha: string; quien_pago: string; categoria: string;
+    descripcion: string | null; valor_original: number; valor_pau: number;
+  }>).map((r) => ({
+    fecha: r.fecha,
+    quien_pago: r.quien_pago,
+    categoria: r.categoria,
+    descripcion: r.descripcion,
+    valor_original: r.valor_original,
+    valor_persona: r.valor_pau,
+  }));
 
-  const categories = Array.from(map.values()).sort((a, b) => b.total - a.total);
-  const totalMonth = categories.reduce((s, c) => s + c.total, 0);
-
-  return { categories, totalMonth, error: null };
+  return { rows, error: null };
 }
 
-export async function fetchAllTransactions(year: number, month: number) {
+export async function fetchDashboardData(year: number, month: number) {
   const { firstDay, lastDay } = dateRange(year, month);
 
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("amount, description, transaction_date, expense_categories(name, is_shared)")
-    .gte("transaction_date", firstDay)
-    .lte("transaction_date", lastDay)
-    .order("transaction_date", { ascending: true });
+  const [gonResult, pauResult] = await Promise.all([
+    supabase
+      .from("gastos_gon")
+      .select("categoria, valor_original, valor_gon, quien_pago")
+      .gte("fecha", firstDay)
+      .lte("fecha", lastDay),
+    supabase
+      .from("gastos_pau")
+      .select("categoria, valor_original, valor_pau, quien_pago")
+      .gte("fecha", firstDay)
+      .lte("fecha", lastDay),
+  ]);
 
-  if (error || !data) return { transactions: [] as TransactionDetail[], error };
+  const gonRows = (gonResult.data ?? []) as Array<{ categoria: string; valor_gon: number; quien_pago: string }>;
+  const pauRows = (pauResult.data ?? []) as Array<{ categoria: string; valor_pau: number; quien_pago: string }>;
 
-  const transactions: TransactionDetail[] = [];
-  for (const t of data as unknown as Row[]) {
-    const cat = resolveCategory(t.expense_categories);
-    if (!cat) continue;
-    transactions.push({
-      amount: t.amount,
-      description: t.description,
-      transaction_date: t.transaction_date,
-      category_name: cat.name,
-      is_shared: cat.is_shared,
-    });
+  const totalGon = gonRows.reduce((s, r) => s + r.valor_gon, 0);
+  const totalPau = pauRows.reduce((s, r) => s + r.valor_pau, 0);
+  const totalMes = totalGon + totalPau;
+
+  // Agregar por categoría (valor_gon + valor_pau = total sin doble conteo)
+  const map = new Map<string, { totalGon: number; totalPau: number }>();
+  for (const r of gonRows) {
+    const e = map.get(r.categoria) ?? { totalGon: 0, totalPau: 0 };
+    e.totalGon += r.valor_gon;
+    map.set(r.categoria, e);
+  }
+  for (const r of pauRows) {
+    const e = map.get(r.categoria) ?? { totalGon: 0, totalPau: 0 };
+    e.totalPau += r.valor_pau;
+    map.set(r.categoria, e);
   }
 
-  return { transactions, error: null };
+  const categories: CategoryTotal[] = Array.from(map.entries())
+    .map(([name, { totalGon: tg, totalPau: tp }]) => ({
+      name,
+      total: tg + tp,
+      type: (tg > 0 && tp > 0 ? "ambos" : tg > 0 ? "gon" : "pau") as CategoryTotal["type"],
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  return { totalMes, totalGon, totalPau, categories, error: gonResult.error ?? pauResult.error };
 }

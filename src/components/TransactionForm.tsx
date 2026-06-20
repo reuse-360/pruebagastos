@@ -2,96 +2,97 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import type { ExpenseCategory, HouseholdMember } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCLP, SPLIT_GON, SPLIT_PAU } from "@/lib/constants";
 
-const SPLIT_GON = 0.64;
-const SPLIT_PAULINA = 0.36;
+type QuienPago = "gon" | "pau" | "ambos";
+
+const QUIEN_OPTIONS: { value: QuienPago; label: string }[] = [
+  { value: "gon", label: "Gon" },
+  { value: "pau", label: "Pau" },
+  { value: "ambos", label: "Ambos (compartido)" },
+];
 
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatCLP(amount: number) {
-  return new Intl.NumberFormat("es-CL", {
-    style: "currency",
-    currency: "CLP",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
 const nativeSelectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
 export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
-  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
-  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   const [amount, setAmount] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [categoria, setCategoria] = useState("");
   const [date, setDate] = useState(todayISO());
-  const [paidById, setPaidById] = useState("");
+  const [quienPago, setQuienPago] = useState<QuienPago | "">("");
   const [description, setDescription] = useState("");
 
   useEffect(() => {
-    Promise.all([
-      supabase
-        .from("expense_categories")
-        .select("*")
-        .eq("active", true)
-        .order("is_shared", { ascending: false })
-        .order("name"),
-      supabase
-        .from("household_members")
-        .select("*")
-        .eq("active", true)
-        .order("name"),
-    ]).then(([catsResult, memsResult]) => {
-      if (catsResult.data) setCategories(catsResult.data as ExpenseCategory[]);
-      if (memsResult.data) setMembers(memsResult.data as HouseholdMember[]);
-      setLoadingData(false);
-    });
+    supabase
+      .from("expense_categories")
+      .select("name")
+      .eq("active", true)
+      .order("name")
+      .then(({ data }) => {
+        if (data) setCategories(data.map((c: { name: string }) => c.name));
+        setLoadingData(false);
+      });
   }, []);
 
-  const selectedCategory = categories.find((c) => c.id === categoryId);
   const numericAmount = parseFloat(amount.replace(/\./g, "").replace(",", ".")) || 0;
-  const isShared = selectedCategory?.is_shared ?? false;
+  const isAmbos = quienPago === "ambos";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!categoryId || !paidById || !amount) return;
+    if (!categoria || !quienPago || !amount) return;
 
     setError(null);
     setSubmitting(true);
 
-    const { error: err } = await supabase.from("transactions").insert([{
-      amount: numericAmount,
-      transaction_date: date,
-      description: description.trim() || null,
-      category_id: categoryId,
-      paid_by_member_id: paidById,
-    }]);
+    const base = {
+      fecha: date,
+      quien_pago: quienPago,
+      categoria,
+      descripcion: description.trim() || null,
+      valor_original: numericAmount,
+    };
+
+    const errs: string[] = [];
+
+    if (quienPago === "gon" || quienPago === "ambos") {
+      const valor_gon = quienPago === "ambos" ? numericAmount * SPLIT_GON : numericAmount;
+      const { error: err } = await supabase.from("gastos_gon").insert([{ ...base, valor_gon }]);
+      if (err) errs.push(err.message);
+    }
+
+    if (quienPago === "pau" || quienPago === "ambos") {
+      const valor_pau = quienPago === "ambos" ? numericAmount * SPLIT_PAU : numericAmount;
+      const { error: err } = await supabase.from("gastos_pau").insert([{ ...base, valor_pau }]);
+      if (err) errs.push(err.message);
+    }
 
     setSubmitting(false);
 
-    if (err) {
-      setError(err.message);
+    if (errs.length > 0) {
+      setError(errs.join(" / "));
       return;
     }
 
     setSaved(true);
     setAmount("");
-    setCategoryId("");
+    setCategoria("");
     setDate(todayISO());
-    setPaidById("");
+    setQuienPago("");
     setDescription("");
     setTimeout(() => setSaved(false), 3000);
     onSaved?.();
@@ -120,22 +121,20 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
 
           {/* Categoría */}
           <div className="space-y-1.5">
-            <Label htmlFor="categoryId">Categoría</Label>
+            <Label htmlFor="categoria">Categoría</Label>
             <select
-              id="categoryId"
+              id="categoria"
               className={nativeSelectClass}
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
               required
               disabled={loadingData}
             >
               <option value="">
                 {loadingData ? "Cargando…" : "Selecciona una categoría"}
               </option>
-              {categories.map((c) => (
-                <option key={c.id} value={String(c.id)}>
-                  {c.name}{c.is_shared ? " (compartida)" : " (personal)"}
-                </option>
+              {categories.map((name) => (
+                <option key={name} value={name}>{name}</option>
               ))}
             </select>
           </div>
@@ -154,22 +153,17 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
 
           {/* Quién pagó */}
           <div className="space-y-1.5">
-            <Label htmlFor="paidById">¿Quién pagó?</Label>
+            <Label htmlFor="quienPago">¿Quién pagó?</Label>
             <select
-              id="paidById"
+              id="quienPago"
               className={nativeSelectClass}
-              value={paidById}
-              onChange={(e) => setPaidById(e.target.value)}
+              value={quienPago}
+              onChange={(e) => setQuienPago(e.target.value as QuienPago | "")}
               required
-              disabled={loadingData}
             >
-              <option value="">
-                {loadingData ? "Cargando…" : "Selecciona quién pagó"}
-              </option>
-              {members.map((m) => (
-                <option key={m.id} value={String(m.id)}>
-                  {m.name}
-                </option>
+              <option value="">Selecciona quién pagó</option>
+              {QUIEN_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
           </div>
@@ -186,8 +180,8 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
             />
           </div>
 
-          {/* Split automático */}
-          {isShared && numericAmount > 0 && (
+          {/* Preview split cuando es compartido */}
+          {isAmbos && numericAmount > 0 && (
             <div className="rounded-lg border bg-muted/50 p-3 space-y-1 text-sm">
               <p className="font-medium text-muted-foreground">Split compartido</p>
               <div className="flex justify-between">
@@ -195,21 +189,16 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
                 <span className="font-semibold">{formatCLP(numericAmount * SPLIT_GON)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Paulina (36%)</span>
-                <span className="font-semibold">{formatCLP(numericAmount * SPLIT_PAULINA)}</span>
+                <span>Pau (36%)</span>
+                <span className="font-semibold">{formatCLP(numericAmount * SPLIT_PAU)}</span>
               </div>
             </div>
           )}
 
-          {error && (
-            <p className="text-sm text-red-600">{error}</p>
-          )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {saved && <p className="text-sm text-green-600">Gasto guardado correctamente.</p>}
 
-          {saved && (
-            <p className="text-sm text-green-600">Gasto guardado correctamente.</p>
-          )}
-
-          <Button type="submit" className="w-full" disabled={submitting}>
+          <Button type="submit" className="w-full" disabled={submitting || !quienPago || !categoria || !amount}>
             {submitting ? "Guardando…" : "Guardar gasto"}
           </Button>
         </form>
