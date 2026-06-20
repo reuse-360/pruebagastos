@@ -7,6 +7,9 @@ const links = [
   { href: "/", label: "Agregar" },
   { href: "/resumen", label: "Resumen" },
   { href: "/dashboard", label: "Dashboard" },
+  ...(process.env.NEXT_PUBLIC_SHOW_BASE === "true"
+    ? [{ href: "/base", label: "Base" }]
+    : []),
 ];
 
 export function Nav() {
