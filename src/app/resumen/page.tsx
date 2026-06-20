@@ -83,6 +83,53 @@ function buildCopyText(month: number, year: number, rows: TxRow[], person: Perso
   return lines.join("\n");
 }
 
+function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Person): string {
+  const nombre = person === "gon" ? "Gon" : "Pau";
+  const pct = person === "gon" ? SPLIT_GON : SPLIT_PAU;
+  const shareLabel = person === "gon" ? "Total Gon" : "Total Pau";
+  const total = rows.reduce((s, r) => s + r.valor_persona, 0);
+  const totalOriginal = rows.reduce((s, r) => s + r.valor_original, 0);
+
+  const tdStyle = "padding:6px 12px;border:1px solid #e2e8f0;";
+  const thStyle = "padding:6px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:600;text-align:left;";
+  const numStyle = `${tdStyle}text-align:right;`;
+  const numThStyle = `${thStyle}text-align:right;`;
+
+  const headerRow = `<tr>
+    <th style="${thStyle}">Categoría</th>
+    <th style="${thStyle}">Descripción</th>
+    <th style="${numThStyle}">Valor original</th>
+    <th style="${numThStyle}">${shareLabel}</th>
+    <th style="${numThStyle}">Fecha</th>
+  </tr>`;
+
+  const bodyRows = rows.map((r) => {
+    const isShared = r.quien_pago === "ambos";
+    const catLabel = isShared ? `${r.categoria} (${Math.round(pct * 100)}%)` : r.categoria;
+    return `<tr>
+      <td style="${tdStyle}">${catLabel}</td>
+      <td style="${tdStyle}">${r.descripcion ?? ""}</td>
+      <td style="${numStyle}">${formatCLP(r.valor_original)}</td>
+      <td style="${numStyle}">${formatCLP(r.valor_persona)}</td>
+      <td style="${numStyle}">${formatDate(r.fecha)}</td>
+    </tr>`;
+  }).join("\n");
+
+  const footerRow = `<tr>
+    <td colspan="2" style="${tdStyle}font-weight:700;">TOTAL ${nombre.toUpperCase()}</td>
+    <td style="${numStyle}font-weight:600;">${formatCLP(totalOriginal)}</td>
+    <td style="${numStyle}font-weight:700;">${formatCLP(total)}</td>
+    <td style="${tdStyle}"></td>
+  </tr>`;
+
+  return `<h3 style="font-family:sans-serif;margin-bottom:8px;">Resumen ${MESES[month - 1]} ${year} — ${nombre}</h3>
+<table style="border-collapse:collapse;font-family:sans-serif;font-size:13px;">
+  <thead>${headerRow}</thead>
+  <tbody>${bodyRows}</tbody>
+  <tfoot>${footerRow}</tfoot>
+</table>`;
+}
+
 function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
   const isPau = person === "pau";
   const accentClass = isPau ? "text-amber-600" : "text-indigo-600";
@@ -177,7 +224,17 @@ export default function ResumenPage() {
 
   async function handleCopy() {
     const text = buildCopyText(month, year, rows, person);
-    await navigator.clipboard.writeText(text);
+    const html = buildCopyHtml(month, year, rows, person);
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        }),
+      ]);
+    } catch {
+      await navigator.clipboard.writeText(text);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
