@@ -76,6 +76,56 @@ export async function fetchGastosPau(year: number, month: number): Promise<{ row
   return { rows, error: null };
 }
 
+export interface AnnualResult {
+  categories: string[];
+  monthly: Record<string, number[]>; // categoria -> [12 meses]
+  monthTotals: number[];             // total por mes
+  categoryTotals: Record<string, number>; // total anual por categoria
+  grandTotal: number;
+  error: unknown;
+}
+
+export async function fetchAnnualData(year: number, person: "gon" | "pau"): Promise<AnnualResult> {
+  const [txResult, catResult] = await Promise.all([
+    supabase
+      .from(person === "gon" ? "gastos_gon" : "gastos_pau")
+      .select("fecha, categoria, valor_original")
+      .gte("fecha", `${year}-01-01`)
+      .lte("fecha", `${year}-12-31`),
+    supabase
+      .from("expense_categories")
+      .select("name")
+      .eq("active", true)
+      .order("name"),
+  ]);
+
+  const txData = (txResult.data ?? []) as Array<{ fecha: string; categoria: string; valor_original: number }>;
+  const categories: string[] = (catResult.data ?? []).map((r: { name: string }) => r.name);
+
+  // include categories from transactions not in the master list
+  for (const r of txData) {
+    if (!categories.includes(r.categoria)) categories.push(r.categoria);
+  }
+  categories.sort();
+
+  const monthly: Record<string, number[]> = {};
+  for (const cat of categories) monthly[cat] = Array(12).fill(0);
+
+  for (const r of txData) {
+    const m = parseInt(r.fecha.split("-")[1]) - 1;
+    monthly[r.categoria][m] += r.valor_original;
+  }
+
+  const monthTotals = Array.from({ length: 12 }, (_, m) =>
+    categories.reduce((s, cat) => s + monthly[cat][m], 0)
+  );
+  const categoryTotals: Record<string, number> = {};
+  for (const cat of categories) categoryTotals[cat] = monthly[cat].reduce((s, v) => s + v, 0);
+  const grandTotal = Object.values(categoryTotals).reduce((s, v) => s + v, 0);
+
+  return { categories, monthly, monthTotals, categoryTotals, grandTotal, error: txResult.error ?? catResult.error };
+}
+
 export async function fetchDashboardData(year: number, month: number, person: "gon" | "pau") {
   const { firstDay, lastDay } = dateRange(year, month);
   const isGon = person === "gon";
