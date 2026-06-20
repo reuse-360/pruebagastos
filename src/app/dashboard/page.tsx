@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchDashboardData, type CategoryTotal } from "@/lib/queries";
 import { formatCLP, MESES } from "@/lib/constants";
 
+type Person = "gon" | "pau";
+
 const nativeSelectClass =
   "flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
@@ -15,6 +17,27 @@ const COLORS = { ambos: "#6366f1", gon: "#3b82f6", pau: "#f59e0b" };
 
 function prevMonth(year: number, month: number) {
   return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+}
+
+function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person) => void }) {
+  return (
+    <div className="flex rounded-md border border-input overflow-hidden text-sm font-medium">
+      {(["gon", "pau"] as Person[]).map((p) => (
+        <button
+          key={p}
+          onClick={() => onChange(p)}
+          className={`px-4 py-2 transition-colors flex flex-col items-center leading-tight ${
+            value === p
+              ? "bg-primary text-primary-foreground"
+              : "bg-background text-muted-foreground hover:bg-muted"
+          }`}
+        >
+          <span className="text-sm font-medium">{p === "gon" ? "Gon" : "Pau"}</span>
+          <span className="text-xs opacity-70">{p === "gon" ? "(64%)" : "(36%)"}</span>
+        </button>
+      ))}
+    </div>
+  );
 }
 
 interface CustomTooltipProps {
@@ -29,7 +52,9 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
     <div className="rounded-lg border bg-background p-2 text-xs shadow-md space-y-0.5">
       <p className="font-semibold">{d.name}</p>
       <p>Total: {formatCLP(d.total)}</p>
-      <p className="text-muted-foreground capitalize">{d.type === "ambos" ? "Compartido" : d.type === "gon" ? "Solo Gon" : "Solo Pau"}</p>
+      <p className="text-muted-foreground capitalize">
+        {d.type === "ambos" ? "Compartido" : d.type === "gon" ? "Solo Gon" : "Solo Pau"}
+      </p>
     </div>
   );
 }
@@ -38,9 +63,9 @@ export default function DashboardPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [totalMes, setTotalMes] = useState(0);
-  const [totalGon, setTotalGon] = useState(0);
-  const [totalPau, setTotalPau] = useState(0);
+  const [person, setPerson] = useState<Person>("gon");
+  const [totalOriginal, setTotalOriginal] = useState(0);
+  const [totalPersona, setTotalPersona] = useState(0);
   const [categories, setCategories] = useState<CategoryTotal[]>([]);
   const [totalPrev, setTotalPrev] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,27 +74,28 @@ export default function DashboardPage() {
     setLoading(true);
     const prev = prevMonth(year, month);
     const [curr, previous] = await Promise.all([
-      fetchDashboardData(year, month),
-      fetchDashboardData(prev.year, prev.month),
+      fetchDashboardData(year, month, person),
+      fetchDashboardData(prev.year, prev.month, person),
     ]);
-    setTotalMes(curr.totalMes);
-    setTotalGon(curr.totalGon);
-    setTotalPau(curr.totalPau);
+    setTotalOriginal(curr.totalOriginal);
+    setTotalPersona(curr.totalPersona);
     setCategories(curr.categories);
-    setTotalPrev(previous.totalMes);
+    setTotalPrev(previous.totalOriginal);
     setLoading(false);
-  }, [year, month]);
+  }, [year, month, person]);
 
   useEffect(() => { load(); }, [load]);
 
-  const monthDiff = totalPrev !== null ? totalMes - totalPrev : null;
+  const isPau = person === "pau";
+  const accentClass = isPau ? "text-amber-600" : "text-indigo-600";
+  const monthDiff = totalPrev !== null ? totalOriginal - totalPrev : null;
   const chartData = categories.map((c) => ({ ...c, value: c.total }));
 
   return (
     <main className="container mx-auto max-w-lg px-4 py-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold">Dashboard</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap items-center">
           <select
             className={nativeSelectClass}
             value={month}
@@ -87,13 +113,18 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">Ver perspectiva de:</span>
+        <PersonToggle value={person} onChange={setPerson} />
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <Card>
           <CardHeader className="pb-1">
             <CardTitle className="text-xs text-muted-foreground">Total del mes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-bold">{loading ? "—" : formatCLP(totalMes)}</p>
+            <p className="text-lg font-bold">{loading ? "—" : formatCLP(totalOriginal)}</p>
             {monthDiff !== null && !loading && (
               <p className={`text-xs mt-0.5 ${monthDiff > 0 ? "text-red-500" : "text-green-600"}`}>
                 {monthDiff > 0 ? "▲" : "▼"} {formatCLP(Math.abs(monthDiff))} vs mes anterior
@@ -103,21 +134,17 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground">Total Pau</CardTitle>
+            <CardTitle className={`text-xs ${accentClass}`}>
+              {isPau ? "Total Pau" : "Total Gon"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-bold text-amber-600">{loading ? "—" : formatCLP(totalPau)}</p>
+            <p className={`text-lg font-bold ${accentClass}`}>
+              {loading ? "—" : formatCLP(totalPersona)}
+            </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground">Total Gon</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-base font-semibold text-indigo-600">{loading ? "—" : formatCLP(totalGon)}</p>
-          </CardContent>
-        </Card>
-        <Card>
+        <Card className="col-span-2">
           <CardHeader className="pb-1">
             <CardTitle className="text-xs text-muted-foreground">Categorías</CardTitle>
           </CardHeader>
@@ -165,10 +192,6 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
-
-      {!loading && categories.length === 0 && (
-        <p className="text-center text-muted-foreground py-4">Sin transacciones este mes.</p>
-      )}
     </main>
   );
 }

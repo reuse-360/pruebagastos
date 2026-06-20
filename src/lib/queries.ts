@@ -76,49 +76,40 @@ export async function fetchGastosPau(year: number, month: number): Promise<{ row
   return { rows, error: null };
 }
 
-export async function fetchDashboardData(year: number, month: number) {
+export async function fetchDashboardData(year: number, month: number, person: "gon" | "pau") {
   const { firstDay, lastDay } = dateRange(year, month);
+  const isGon = person === "gon";
+  const table = isGon ? "gastos_gon" : "gastos_pau";
+  const valorField = isGon ? "valor_gon" : "valor_pau";
 
-  const [gonResult, pauResult] = await Promise.all([
-    supabase
-      .from("gastos_gon")
-      .select("categoria, valor_original, valor_gon, quien_pago")
-      .gte("fecha", firstDay)
-      .lte("fecha", lastDay),
-    supabase
-      .from("gastos_pau")
-      .select("categoria, valor_original, valor_pau, quien_pago")
-      .gte("fecha", firstDay)
-      .lte("fecha", lastDay),
-  ]);
+  const { data, error } = await supabase
+    .from(table)
+    .select(`categoria, valor_original, ${valorField}, quien_pago`)
+    .gte("fecha", firstDay)
+    .lte("fecha", lastDay);
 
-  const gonRows = (gonResult.data ?? []) as Array<{ categoria: string; valor_gon: number; quien_pago: string }>;
-  const pauRows = (pauResult.data ?? []) as Array<{ categoria: string; valor_pau: number; quien_pago: string }>;
+  type Row = { categoria: string; valor_original: number; valor_gon?: number; valor_pau?: number; quien_pago: string };
+  const rows = (data ?? []) as Row[];
 
-  const totalGon = gonRows.reduce((s, r) => s + r.valor_gon, 0);
-  const totalPau = pauRows.reduce((s, r) => s + r.valor_pau, 0);
-  const totalMes = totalGon + totalPau;
+  const totalOriginal = rows.reduce((s, r) => s + r.valor_original, 0);
+  const totalPersona = rows.reduce((s, r) => s + ((isGon ? r.valor_gon : r.valor_pau) ?? 0), 0);
 
-  // Agregar por categoría (valor_gon + valor_pau = total sin doble conteo)
-  const map = new Map<string, { totalGon: number; totalPau: number }>();
-  for (const r of gonRows) {
-    const e = map.get(r.categoria) ?? { totalGon: 0, totalPau: 0 };
-    e.totalGon += r.valor_gon;
-    map.set(r.categoria, e);
-  }
-  for (const r of pauRows) {
-    const e = map.get(r.categoria) ?? { totalGon: 0, totalPau: 0 };
-    e.totalPau += r.valor_pau;
+  const map = new Map<string, { total: number; hasAmbos: boolean; hasPersonal: boolean }>();
+  for (const r of rows) {
+    const e = map.get(r.categoria) ?? { total: 0, hasAmbos: false, hasPersonal: false };
+    e.total += r.valor_original;
+    if (r.quien_pago === "ambos") e.hasAmbos = true;
+    else e.hasPersonal = true;
     map.set(r.categoria, e);
   }
 
   const categories: CategoryTotal[] = Array.from(map.entries())
-    .map(([name, { totalGon: tg, totalPau: tp }]) => ({
+    .map(([name, { total, hasAmbos, hasPersonal }]) => ({
       name,
-      total: tg + tp,
-      type: (tg > 0 && tp > 0 ? "ambos" : tg > 0 ? "gon" : "pau") as CategoryTotal["type"],
+      total,
+      type: (hasAmbos && !hasPersonal ? "ambos" : !hasAmbos && hasPersonal ? person : "ambos") as CategoryTotal["type"],
     }))
     .sort((a, b) => b.total - a.total);
 
-  return { totalMes, totalGon, totalPau, categories, error: gonResult.error ?? pauResult.error };
+  return { totalOriginal, totalPersona, categories, error };
 }
