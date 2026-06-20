@@ -70,6 +70,7 @@ export default function BasePage() {
 
   const isGon = person === "gon";
   const total = rows.reduce((s, r) => s + (isGon ? (r as RowGon).valor_gon : (r as RowPau).valor_pau), 0);
+  const totalOriginal = rows.reduce((s, r) => s + r.valor_original, 0);
 
   return (
     <main className="container mx-auto max-w-4xl px-4 py-6 space-y-4">
@@ -200,7 +201,8 @@ export default function BasePage() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t bg-muted/30 font-semibold text-sm">
-                    <td colSpan={5} className="px-3 py-2">TOTAL</td>
+                    <td colSpan={4} className="px-3 py-2">TOTAL</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">{formatCLP(totalOriginal)}</td>
                     <td className={`px-3 py-2 text-right font-bold whitespace-nowrap ${isGon ? "text-indigo-600" : "text-amber-600"}`}>
                       {formatCLP(total)}
                     </td>
