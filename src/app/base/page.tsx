@@ -189,7 +189,7 @@ export default function BasePage() {
                         <td className="px-3 py-2 font-medium">{r.categoria}</td>
                         <td className="px-3 py-2 text-muted-foreground">{r.descripcion ?? ""}</td>
                         <td className="px-3 py-2 text-right whitespace-nowrap">
-                          {isShared ? formatCLP(r.valor_original) : <span className="text-muted-foreground">—</span>}
+                          {formatCLP(r.valor_original)}
                         </td>
                         <td className={`px-3 py-2 text-right font-medium whitespace-nowrap ${isGon ? "text-indigo-600" : "text-amber-600"}`}>
                           {formatCLP(valorPersona)}
