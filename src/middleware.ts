@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
   const cookie = request.cookies.get("gastos_auth")?.value;
-  if (cookie === process.env.AUTH_SECRET) return NextResponse.next();
+  if (cookie && cookie === process.env.AUTH_PASSWORD) return NextResponse.next();
 
   const url = new URL("/login", request.url);
   url.searchParams.set("from", request.nextUrl.pathname);

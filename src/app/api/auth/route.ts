@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   const { password } = await request.json();
 
-  if (!process.env.AUTH_PASSWORD || !process.env.AUTH_SECRET) {
+  if (!process.env.AUTH_PASSWORD) {
     return NextResponse.json({ error: "Auth no configurado" }, { status: 500 });
   }
 
@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set("gastos_auth", process.env.AUTH_SECRET, {
+  response.cookies.set("gastos_auth", process.env.AUTH_PASSWORD, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

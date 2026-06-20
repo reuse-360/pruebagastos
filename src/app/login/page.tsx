@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -22,8 +21,7 @@ function LoginForm() {
     });
 
     if (res.ok) {
-      router.push(searchParams.get("from") ?? "/");
-      router.refresh();
+      window.location.href = searchParams.get("from") ?? "/";
     } else {
       setError("Contraseña incorrecta");
       setLoading(false);
