@@ -53,7 +53,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
       <p className="font-semibold">{d.name}</p>
       <p>Total: {formatCLP(d.total)}</p>
       <p className="text-muted-foreground capitalize">
-        {d.type === "ambos" ? "Compartido" : d.type === "gon" ? "Solo Gon" : "Solo Pau"}
+        {d.type === "ambos" ? "Compartido" : "Gasto propio"}
       </p>
     </div>
   );
@@ -152,10 +152,7 @@ export default function DashboardPage() {
           <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.ambos }} />Compartido
         </span>
         <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.gon }} />Solo Gon
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: COLORS.pau }} />Solo Pau
+          <span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: isPau ? COLORS.pau : COLORS.gon }} />Gasto propio
         </span>
       </div>
 
