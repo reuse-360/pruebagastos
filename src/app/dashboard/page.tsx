@@ -144,14 +144,7 @@ export default function DashboardPage() {
             </p>
           </CardContent>
         </Card>
-        <Card className="col-span-2">
-          <CardHeader className="pb-1">
-            <CardTitle className="text-xs text-muted-foreground">Categorías</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-base font-semibold">{loading ? "—" : categories.length}</p>
-          </CardContent>
-        </Card>
+
       </div>
 
       <div className="flex gap-4 text-xs text-muted-foreground">
