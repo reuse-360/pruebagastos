@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend,
+} from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchAnnualData } from "@/lib/queries";
 import { formatCLP } from "@/lib/constants";
 
@@ -12,6 +17,11 @@ const nativeSelectClass =
   "flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
 const STORAGE_KEY = "gastos_optimos";
+
+const LINE_COLORS = [
+  "#6366f1","#f59e0b","#10b981","#ef4444","#3b82f6",
+  "#8b5cf6","#f97316","#14b8a6","#ec4899","#84cc16",
+];
 
 function loadOptimos(): Record<string, number> {
   if (typeof window === "undefined") return {};
@@ -64,19 +74,42 @@ function OptInput({ value, onChange }: { value: number; onChange: (v: number) =>
   );
 }
 
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ name: string; value: number; color: string }>;
+  label?: string;
+}
+
+function ChartTooltip({ active, payload, label }: TooltipProps) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-background p-2 text-xs shadow-md space-y-1 min-w-[140px]">
+      <p className="font-semibold text-muted-foreground">{label}</p>
+      {payload.map((p) => (
+        <p key={p.name} className="flex justify-between gap-3">
+          <span style={{ color: p.color }}>{p.name}</span>
+          <span className="font-medium tabular-nums">{formatCLP(p.value)}</span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
 export default function AnualPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [person, setPerson] = useState<Person>("gon");
   const [data, setData] = useState<Awaited<ReturnType<typeof fetchAnnualData>> | null>(null);
   const [optimos, setOptimos] = useState<Record<string, number>>({});
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { setOptimos(loadOptimos()); }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setData(await fetchAnnualData(year, person));
+    const result = await fetchAnnualData(year, person);
+    setData(result);
     setLoading(false);
   }, [year, person]);
 
@@ -89,11 +122,31 @@ export default function AnualPage() {
     saveOptimos(updated);
   }
 
+  function toggleCat(cat: string) {
+    setSelectedCats((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  }
+
   const visibleCategories = (data?.categories ?? []).filter(
     (cat) => (data?.categoryTotals[cat] ?? 0) > 0 || (optimos[cat] ?? 0) > 0
   );
 
   const totalOptimos = visibleCategories.reduce((s, cat) => s + (optimos[cat] ?? 0), 0);
+
+  // Chart data: one point per month
+  const chartData = MESES_CORTOS.map((mes, m) => {
+    const point: Record<string, number | string> = { mes };
+    for (const cat of selectedCats) {
+      point[cat] = data?.monthly[cat]?.[m] ?? 0;
+    }
+    return point;
+  });
+
+  const selectedArr = Array.from(selectedCats);
 
   return (
     <main className="px-4 py-6 space-y-4">
@@ -113,6 +166,7 @@ export default function AnualPage() {
         <PersonToggle value={person} onChange={setPerson} />
       </div>
 
+      {/* Tabla */}
       <div className="overflow-x-auto rounded-lg border">
         <table className="text-sm min-w-max w-full">
           <thead>
@@ -194,6 +248,68 @@ export default function AnualPage() {
         <p className="text-xs text-muted-foreground text-center">
           Podés ingresar un óptimo anual por categoría en la columna de la derecha — se guarda en tu dispositivo.
         </p>
+      )}
+
+      {/* Gráfico de evolución */}
+      {!loading && visibleCategories.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Evolución mensual</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Chips de selección */}
+            <div className="flex flex-wrap gap-1.5">
+              {visibleCategories.map((cat, i) => {
+                const color = LINE_COLORS[i % LINE_COLORS.length];
+                const active = selectedCats.has(cat);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => toggleCat(cat)}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                      active ? "text-white border-transparent" : "text-muted-foreground border-muted-foreground/30 hover:border-muted-foreground/60"
+                    }`}
+                    style={active ? { background: color, borderColor: color } : {}}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+
+            {selectedArr.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                Seleccioná una o más categorías para ver su evolución
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                    tick={{ fontSize: 10 }}
+                    width={48}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {selectedArr.map((cat, i) => (
+                    <Line
+                      key={cat}
+                      type="monotone"
+                      dataKey={cat}
+                      stroke={LINE_COLORS[visibleCategories.indexOf(cat) % LINE_COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
+                      connectNulls={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
       )}
     </main>
   );
