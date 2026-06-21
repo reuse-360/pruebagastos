@@ -24,18 +24,39 @@ function todayISO() {
 const nativeSelectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
-export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
+interface TransactionFormProps {
+  onSaved?: () => void;
+  onSkip?: () => void;
+  preload?: {
+    amount: string;
+    description: string;
+    date: string;
+  };
+}
+
+export function TransactionForm({ onSaved, onSkip, preload }: TransactionFormProps) {
   const [categories, setCategories] = useState<string[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(preload?.amount ?? "");
   const [categoria, setCategoria] = useState("");
-  const [date, setDate] = useState(todayISO());
+  const [date, setDate] = useState(preload?.date ?? todayISO());
   const [quienPago, setQuienPago] = useState<QuienPago | "">("");
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(preload?.description ?? "");
+
+  // sincroniza si cambia el preload (siguiente sugerencia)
+  useEffect(() => {
+    if (preload) {
+      setAmount(preload.amount);
+      setDescription(preload.description);
+      setDate(preload.date);
+      setCategoria("");
+      setQuienPago("");
+    }
+  }, [preload?.amount, preload?.description, preload?.date]);
 
   useEffect(() => {
     supabase
@@ -198,9 +219,16 @@ export function TransactionForm({ onSaved }: { onSaved?: () => void }) {
           {error && <p className="text-sm text-red-600">{error}</p>}
           {saved && <p className="text-sm text-green-600">Gasto guardado correctamente.</p>}
 
-          <Button type="submit" className="w-full" disabled={submitting || !quienPago || !categoria || !amount}>
-            {submitting ? "Guardando…" : "Guardar gasto"}
-          </Button>
+          <div className="flex gap-2">
+            <Button type="submit" className="flex-1" disabled={submitting || !quienPago || !categoria || !amount}>
+              {submitting ? "Guardando…" : "Guardar gasto"}
+            </Button>
+            {onSkip && (
+              <Button type="button" variant="outline" onClick={onSkip} disabled={submitting}>
+                Ignorar
+              </Button>
+            )}
+          </div>
         </form>
       </CardContent>
     </Card>

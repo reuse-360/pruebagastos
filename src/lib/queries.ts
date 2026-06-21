@@ -1,5 +1,27 @@
 import { supabase } from "./supabase";
 
+export interface Sugerencia {
+  id: string;
+  comercio: string;
+  monto: number;
+  texto_original: string | null;
+  fecha: string;
+  estado: "pendiente" | "guardado" | "ignorado";
+}
+
+export async function fetchSugerenciasPendientes(): Promise<Sugerencia[]> {
+  const { data } = await supabase
+    .from("sugerencias")
+    .select("*")
+    .eq("estado", "pendiente")
+    .order("created_at", { ascending: true });
+  return (data ?? []) as Sugerencia[];
+}
+
+export async function marcarSugerencia(id: string, estado: "guardado" | "ignorado") {
+  await supabase.from("sugerencias").update({ estado }).eq("id", id);
+}
+
 // Fila unificada para la vista de resumen (Gon o Pau)
 export interface TxRow {
   fecha: string;
