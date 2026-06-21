@@ -79,7 +79,8 @@ export async function POST(request: NextRequest) {
   let tipoCambio: number | null = null;
 
   if (parsed.montoUsd !== null) {
-    tipoCambio = await getUsdToCLP();
+    const baseRate = await getUsdToCLP();
+    tipoCambio = Math.round(baseRate * 1.035); // spread bancario Santander ~3.5%
     montoCLP = Math.round(parsed.montoUsd * tipoCambio);
   }
 
