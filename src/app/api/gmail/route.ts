@@ -52,7 +52,11 @@ export async function POST(request: NextRequest) {
     await client.connect();
     await client.mailboxOpen("INBOX");
 
-    // Buscar correos de Santander con ese asunto, no vistos aún
+    // Diagnóstico: buscar con distintos filtros
+    const todosSantander = await client.search({ from: "mensajeria@santander.cl" }) as number[];
+    const noLeidos = await client.search({ seen: false }) as number[];
+    const conAsunto = await client.search({ subject: "Comprobante Transferencia de fondos" }) as number[];
+
     const uids = await client.search({
       from: "mensajeria@santander.cl",
       subject: "Comprobante Transferencia de fondos",
@@ -61,7 +65,16 @@ export async function POST(request: NextRequest) {
 
     if (!uids || uids.length === 0) {
       await client.logout();
-      return NextResponse.json({ ok: true, nuevas: 0 });
+      return NextResponse.json({
+        ok: true,
+        nuevas: 0,
+        debug: {
+          todosSantander: todosSantander.length,
+          noLeidos: noLeidos.length,
+          conAsunto: conAsunto.length,
+          combinado: uids.length,
+        }
+      });
     }
 
     let nuevas = 0;
