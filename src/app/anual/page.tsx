@@ -8,6 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchAnnualData } from "@/lib/queries";
 import { formatCLP } from "@/lib/constants";
+import { supabase } from "@/lib/supabase";
 
 type Person = "gon" | "pau";
 
@@ -16,21 +17,29 @@ const MESES_CORTOS = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct
 const nativeSelectClass =
   "flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-const STORAGE_KEY = "gastos_optimos";
-
 const LINE_COLORS = [
   "#6366f1","#f59e0b","#10b981","#ef4444","#3b82f6",
   "#8b5cf6","#f97316","#14b8a6","#ec4899","#84cc16",
 ];
 
-function loadOptimos(): Record<string, number> {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"); }
-  catch { return {}; }
+async function loadOptimos(persona: Person): Promise<Record<string, number>> {
+  const { data } = await supabase
+    .from("optimos_mensuales")
+    .select("categoria, valor")
+    .eq("persona", persona);
+  const result: Record<string, number> = {};
+  for (const row of (data ?? []) as { categoria: string; valor: number }[]) {
+    result[row.categoria] = row.valor;
+  }
+  return result;
 }
 
-function saveOptimos(data: Record<string, number>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+async function saveOptimo(persona: Person, categoria: string, valor: number) {
+  if (valor === 0) {
+    await supabase.from("optimos_mensuales").delete().eq("persona", persona).eq("categoria", categoria);
+  } else {
+    await supabase.from("optimos_mensuales").upsert({ persona, categoria, valor });
+  }
 }
 
 function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person) => void }) {
@@ -104,22 +113,24 @@ export default function AnualPage() {
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => { setOptimos(loadOptimos()); }, []);
-
   const load = useCallback(async () => {
     setLoading(true);
-    const result = await fetchAnnualData(year, person);
+    const [result, opts] = await Promise.all([
+      fetchAnnualData(year, person),
+      loadOptimos(person),
+    ]);
     setData(result);
+    setOptimos(opts);
     setLoading(false);
   }, [year, person]);
 
   useEffect(() => { load(); }, [load]);
 
-  function updateOptimo(categoria: string, value: number) {
+  async function updateOptimo(categoria: string, value: number) {
     const updated = { ...optimos, [categoria]: value };
     if (value === 0) delete updated[categoria];
     setOptimos(updated);
-    saveOptimos(updated);
+    await saveOptimo(person, categoria, value);
   }
 
   function toggleCat(cat: string) {
@@ -131,13 +142,13 @@ export default function AnualPage() {
     });
   }
 
-  const visibleCategories = (data?.categories ?? []).filter(
-    (cat) => (data?.categoryTotals[cat] ?? 0) > 0 || (optimos[cat] ?? 0) > 0
-  );
+  // Todas las categorías, con o sin gastos
+  const allCategories = data?.categories ?? [];
+  const totalOptimos = allCategories.reduce((s, cat) => s + (optimos[cat] ?? 0), 0);
 
-  const totalOptimos = visibleCategories.reduce((s, cat) => s + (optimos[cat] ?? 0), 0);
+  // Para el gráfico solo mostrar las que tienen datos
+  const catsConDatos = allCategories.filter((cat) => (data?.categoryTotals[cat] ?? 0) > 0);
 
-  // Chart data: one point per month
   const chartData = MESES_CORTOS.map((mes, m) => {
     const point: Record<string, number | string> = { mes };
     for (const cat of selectedCats) {
@@ -178,7 +189,7 @@ export default function AnualPage() {
                 <th key={m} className="text-right px-2 py-2 font-medium min-w-[68px]">{m}</th>
               ))}
               <th className="text-right px-3 py-2 font-medium min-w-[88px] border-l">Total</th>
-              <th className="text-right px-3 py-2 font-medium min-w-[108px] border-l">Óptimo anual</th>
+              <th className="text-right px-3 py-2 font-medium min-w-[108px] border-l">Óptimo mensual</th>
               <th className="text-right px-3 py-2 font-medium min-w-[60px]">%</th>
             </tr>
           </thead>
@@ -187,12 +198,12 @@ export default function AnualPage() {
               <tr>
                 <td colSpan={16} className="px-3 py-10 text-center text-muted-foreground">Cargando…</td>
               </tr>
-            ) : visibleCategories.length === 0 ? (
+            ) : allCategories.length === 0 ? (
               <tr>
-                <td colSpan={16} className="px-3 py-10 text-center text-muted-foreground">Sin datos para {year}</td>
+                <td colSpan={16} className="px-3 py-10 text-center text-muted-foreground">Sin categorías configuradas</td>
               </tr>
-            ) : visibleCategories.map((cat, idx) => {
-              const months = data!.monthly[cat];
+            ) : allCategories.map((cat, idx) => {
+              const months = data!.monthly[cat] ?? Array(12).fill(0);
               const catTotal = data!.categoryTotals[cat] ?? 0;
               const optimo = optimos[cat] ?? 0;
               const pct = totalOptimos > 0 && optimo > 0 ? (optimo / totalOptimos * 100).toFixed(1) : null;
@@ -244,22 +255,15 @@ export default function AnualPage() {
         </table>
       </div>
 
-      {totalOptimos === 0 && !loading && visibleCategories.length > 0 && (
-        <p className="text-xs text-muted-foreground text-center">
-          Podés ingresar un óptimo anual por categoría en la columna de la derecha — se guarda en tu dispositivo.
-        </p>
-      )}
-
       {/* Gráfico de evolución */}
-      {!loading && visibleCategories.length > 0 && (
+      {!loading && catsConDatos.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Evolución mensual</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Chips de selección */}
             <div className="flex flex-wrap gap-1.5">
-              {visibleCategories.map((cat, i) => {
+              {catsConDatos.map((cat, i) => {
                 const color = LINE_COLORS[i % LINE_COLORS.length];
                 const active = selectedCats.has(cat);
                 return (
@@ -279,7 +283,7 @@ export default function AnualPage() {
 
             {selectedArr.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-8">
-                Seleccioná una o más categorías para ver su evolución
+                Selecciona una o más categorías para ver su evolución
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
@@ -298,7 +302,7 @@ export default function AnualPage() {
                       key={cat}
                       type="monotone"
                       dataKey={cat}
-                      stroke={LINE_COLORS[visibleCategories.indexOf(cat) % LINE_COLORS.length]}
+                      stroke={LINE_COLORS[catsConDatos.indexOf(cat) % LINE_COLORS.length]}
                       strokeWidth={2}
                       dot={{ r: 3 }}
                       activeDot={{ r: 5 }}
