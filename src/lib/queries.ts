@@ -25,14 +25,19 @@ export async function marcarSugerencia(id: string, estado: "guardado" | "ignorad
 // Parsea texto_original del correo para extraer datos limpios
 export function parsearTextoSugerencia(texto: string | null): {
   origen: string | null;
+  destino: string | null;
   fechaTransferencia: string | null;
   comentario: string | null;
 } {
-  if (!texto) return { origen: null, fechaTransferencia: null, comentario: null };
+  if (!texto) return { origen: null, destino: null, fechaTransferencia: null, comentario: null };
 
   // "nuestro cliente NOMBRE realizó una transferencia"
   const origenMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
   const origen = origenMatch ? origenMatch[1].trim() : null;
+
+  // "Datos de destino Nombre NOMBRE RUT..."
+  const destinoMatch = texto.match(/Datos de destino\s+Nombre\s+(.*?)\s+RUT/i);
+  const destino = destinoMatch ? destinoMatch[1].trim() : null;
 
   // "con fecha DD/MM/YYYY"
   const fechaMatch = texto.match(/con fecha\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
@@ -42,11 +47,11 @@ export function parsearTextoSugerencia(texto: string | null): {
     fechaTransferencia = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
 
-  // "Comentario TEXTO Antes de imprimir..."
+  // "Comentario TEXTO Antes de imprimir..." o "Comentario TEXTO Nota:"
   const comentarioMatch = texto.match(/Comentario\s+(.*?)(?:\s+Antes de|\s+Nota:|$)/i);
   const comentario = comentarioMatch ? comentarioMatch[1].trim() : null;
 
-  return { origen, fechaTransferencia, comentario };
+  return { origen, destino, fechaTransferencia, comentario };
 }
 
 // Fila unificada para la vista de resumen (Gon o Pau)

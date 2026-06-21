@@ -48,7 +48,6 @@ function decodeBase64(b64: string): string {
 }
 
 function extractText(payload: GmailMessageFull["payload"]): string {
-  // Recursively find text/plain or text/html part
   function findPart(parts: GmailPart[] | undefined, mime: string): string | null {
     if (!parts) return null;
     for (const p of parts) {
@@ -59,12 +58,23 @@ function extractText(payload: GmailMessageFull["payload"]): string {
     return null;
   }
 
-  // Try top-level body first (simple emails)
   if (payload.body?.data) return decodeBase64(payload.body.data);
 
-  // Multipart: prefer plain text
-  return findPart(payload.parts, "text/plain")
-    ?? stripHtml(findPart(payload.parts, "text/html") ?? "");
+  // Prefer HTML (Santander's text/plain sometimes starts with CSS)
+  const html = findPart(payload.parts, "text/html");
+  if (html) return stripHtml(html);
+
+  return findPart(payload.parts, "text/plain") ?? "";
+}
+
+// Devuelve el texto desde donde empieza el contenido real del correo
+function extractRelevantSection(texto: string): string {
+  const markers = ["con fecha", "Estimado", "Te informamos", "Monto transferido"];
+  for (const m of markers) {
+    const idx = texto.toLowerCase().indexOf(m.toLowerCase());
+    if (idx > 0) return texto.slice(Math.max(0, idx - 30), idx + 1500);
+  }
+  return texto.slice(0, 1500);
 }
 
 function stripHtml(html: string): string {
@@ -178,7 +188,7 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase.from("sugerencias").insert({
           comercio: datos.comercio,
           monto: datos.monto,
-          texto_original: texto.slice(0, 500),
+          texto_original: extractRelevantSection(texto),
           ...(datos.fecha ? { fecha: datos.fecha } : {}),
         });
 

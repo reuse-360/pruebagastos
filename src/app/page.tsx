@@ -113,7 +113,10 @@ export default function Home() {
             )}
           </p>
           {currentParsed?.origen && (
-            <p className="text-xs text-muted-foreground">De: {currentParsed.origen}</p>
+            <p className="text-xs text-muted-foreground">De: <span className="font-medium text-foreground">{currentParsed.origen}</span></p>
+          )}
+          {currentParsed?.destino && (
+            <p className="text-xs text-muted-foreground">Para: <span className="font-medium text-foreground">{currentParsed.destino}</span></p>
           )}
           {currentParsed?.comentario && (
             <p className="text-xs text-muted-foreground italic">&ldquo;{currentParsed.comentario}&rdquo;</p>
