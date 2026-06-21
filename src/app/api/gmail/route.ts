@@ -87,7 +87,11 @@ export async function POST(request: NextRequest) {
         const texto = (parsed as { text?: string }).text ?? "";
 
         const datos = parsearTransferencia(texto);
-        if (!datos) continue;
+        if (!datos) {
+          // Retornar el texto crudo para diagnóstico
+          await client.logout();
+          return NextResponse.json({ ok: false, debug_texto: texto.slice(0, 800) });
+        }
 
         const { error } = await supabase.from("sugerencias").insert({
           comercio: datos.destinatario,
