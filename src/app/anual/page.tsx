@@ -123,7 +123,7 @@ export default function AnualPage() {
     ]);
     setData(result);
     setOptimos(opts);
-    // Pre-select all categories that have data
+    // Pre-select only categories with actual data (avoids cluttered chart on load)
     const withData = result.categories.filter((cat) => (result.categoryTotals[cat] ?? 0) > 0);
     setSelectedCats(new Set(withData));
     setLoading(false);
@@ -152,7 +152,7 @@ export default function AnualPage() {
   const totalOptimos = allCategories.reduce((s, cat) => s + (optimos[cat] ?? 0), 0);
 
   // Para el gráfico solo mostrar las que tienen datos
-  const catsConDatos = allCategories.filter((cat) => (data?.categoryTotals[cat] ?? 0) > 0);
+  const allCategories = allCategories.filter((cat) => (data?.categoryTotals[cat] ?? 0) > 0);
 
   const chartData = MESES_CORTOS.map((mes, m) => {
     const point: Record<string, number | string> = { mes };
@@ -261,7 +261,7 @@ export default function AnualPage() {
       </div>
 
       {/* Gráfico de evolución */}
-      {!loading && catsConDatos.length > 0 && (
+      {!loading && allCategories.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Evolución mensual</CardTitle>
@@ -276,7 +276,7 @@ export default function AnualPage() {
                 <span>
                   Categorías
                   <span className="ml-2 text-xs text-muted-foreground font-normal">
-                    {selectedArr.length} de {catsConDatos.length} seleccionadas
+                    {selectedArr.length} de {allCategories.length} seleccionadas
                   </span>
                 </span>
                 <ChevronDown
@@ -289,7 +289,7 @@ export default function AnualPage() {
                 <div className="rounded-md border p-3 space-y-3 bg-muted/20">
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setSelectedCats(new Set(catsConDatos))}
+                      onClick={() => setSelectedCats(new Set(allCategories))}
                       className="text-xs px-2.5 py-1 rounded border hover:bg-muted transition-colors"
                     >
                       Todas
@@ -302,7 +302,7 @@ export default function AnualPage() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                    {catsConDatos.map((cat, i) => {
+                    {allCategories.map((cat, i) => {
                       const color = LINE_COLORS[i % LINE_COLORS.length];
                       const active = selectedCats.has(cat);
                       return (
@@ -347,7 +347,7 @@ export default function AnualPage() {
                       key={cat}
                       type="monotone"
                       dataKey={cat}
-                      stroke={LINE_COLORS[catsConDatos.indexOf(cat) % LINE_COLORS.length]}
+                      stroke={LINE_COLORS[allCategories.indexOf(cat) % LINE_COLORS.length]}
                       strokeWidth={2}
                       dot={{ r: 3 }}
                       activeDot={{ r: 5 }}
