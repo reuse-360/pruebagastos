@@ -112,19 +112,29 @@ async function markAsRead(token: string, id: string): Promise<void> {
 
 // ── Parser ──────────────────────────────────────────────────────────────────
 
-function parsearTransferencia(texto: string): { monto: number; destinatario: string; comentario: string | null } | null {
+function parsearTransferencia(texto: string): { monto: number; comercio: string; fecha: string | null } | null {
   const montoMatch = texto.match(/Monto transferido[\s\S]{0,80}\$\s*([\d.]+)/i);
   if (!montoMatch) return null;
   const monto = parseInt(montoMatch[1].replace(/\./g, ""));
   if (isNaN(monto)) return null;
 
-  const destMatch = texto.match(/Datos de destino[\s\S]{0,300}Nombre[\s\r\n\t ]*([^\r\n]+)/i);
-  const destinatario = destMatch ? destMatch[1].trim() : "Transferencia";
+  // Preferir sender ("nuestro cliente NAME realizó") como comercio
+  const origenMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
+  // Fallback: nombre destino cortando antes de "RUT"
+  const destMatch = texto.match(/Datos de destino\s+Nombre\s+(.*?)\s+RUT/i);
+  const comercio = origenMatch
+    ? origenMatch[1].trim()
+    : (destMatch ? destMatch[1].trim() : "Transferencia");
 
-  const comentarioMatch = texto.match(/Comentario[\r\n\t ]+([^\r\n]+)/i);
-  const comentario = comentarioMatch ? comentarioMatch[1].trim() : null;
+  // "con fecha DD/MM/YYYY"
+  const fechaMatch = texto.match(/con fecha\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  let fecha: string | null = null;
+  if (fechaMatch) {
+    const [d, m, y] = fechaMatch[1].split("/");
+    fecha = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
 
-  return { monto, destinatario, comentario };
+  return { monto, comercio, fecha };
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
@@ -166,9 +176,10 @@ export async function POST(request: NextRequest) {
         }
 
         const { error } = await supabase.from("sugerencias").insert({
-          comercio: datos.destinatario,
+          comercio: datos.comercio,
           monto: datos.monto,
           texto_original: texto.slice(0, 500),
+          ...(datos.fecha ? { fecha: datos.fecha } : {}),
         });
 
         if (error) {

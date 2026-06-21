@@ -22,6 +22,33 @@ export async function marcarSugerencia(id: string, estado: "guardado" | "ignorad
   await supabase.from("sugerencias").update({ estado }).eq("id", id);
 }
 
+// Parsea texto_original del correo para extraer datos limpios
+export function parsearTextoSugerencia(texto: string | null): {
+  origen: string | null;
+  fechaTransferencia: string | null;
+  comentario: string | null;
+} {
+  if (!texto) return { origen: null, fechaTransferencia: null, comentario: null };
+
+  // "nuestro cliente NOMBRE realizó una transferencia"
+  const origenMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
+  const origen = origenMatch ? origenMatch[1].trim() : null;
+
+  // "con fecha DD/MM/YYYY"
+  const fechaMatch = texto.match(/con fecha\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  let fechaTransferencia: string | null = null;
+  if (fechaMatch) {
+    const [d, m, y] = fechaMatch[1].split("/");
+    fechaTransferencia = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+
+  // "Comentario TEXTO Antes de imprimir..."
+  const comentarioMatch = texto.match(/Comentario\s+(.*?)(?:\s+Antes de|\s+Nota:|$)/i);
+  const comentario = comentarioMatch ? comentarioMatch[1].trim() : null;
+
+  return { origen, fechaTransferencia, comentario };
+}
+
 // Fila unificada para la vista de resumen (Gon o Pau)
 export interface TxRow {
   fecha: string;

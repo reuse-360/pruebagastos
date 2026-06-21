@@ -3,12 +3,18 @@
 import { useState, useEffect } from "react";
 import { Mail } from "lucide-react";
 import { TransactionForm } from "@/components/TransactionForm";
-import { fetchSugerenciasPendientes, marcarSugerencia, type Sugerencia } from "@/lib/queries";
+import { fetchSugerenciasPendientes, marcarSugerencia, parsearTextoSugerencia, type Sugerencia } from "@/lib/queries";
 import { formatCLP } from "@/lib/constants";
 
 function todayISO() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatFecha(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return `${parseInt(d)} ${meses[parseInt(m) - 1]} ${y}`;
 }
 
 export default function Home() {
@@ -26,6 +32,8 @@ export default function Home() {
   }, []);
 
   const current = sugerencias[idx] ?? null;
+  const currentParsed = current ? parsearTextoSugerencia(current.texto_original) : null;
+  const currentFecha = currentParsed?.fechaTransferencia ?? current?.fecha ?? null;
   const total = sugerencias.length;
   const hayMas = idx < total - 1;
 
@@ -91,16 +99,25 @@ export default function Home() {
 
       {/* Banner de sugerencias */}
       {!loading && total > 0 && !terminado && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-primary">
-              {total - idx} {total - idx === 1 ? "gasto pendiente" : "gastos pendientes"}
+        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 space-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+              {total - idx} {total - idx === 1 ? "pendiente" : "pendientes"}
             </p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Revisa y clasifica: <span className="font-medium">{current.comercio}</span> — {formatCLP(current.monto)}
-            </p>
+            <span className="text-xs text-muted-foreground">{idx + 1}/{total}</span>
           </div>
-          <span className="text-xs text-muted-foreground">{idx + 1}/{total}</span>
+          <p className="text-base font-semibold">
+            {formatCLP(current!.monto)}
+            {currentFecha && (
+              <span className="text-sm font-normal text-muted-foreground"> · {formatFecha(currentFecha)}</span>
+            )}
+          </p>
+          {currentParsed?.origen && (
+            <p className="text-xs text-muted-foreground">De: {currentParsed.origen}</p>
+          )}
+          {currentParsed?.comentario && (
+            <p className="text-xs text-muted-foreground italic">&ldquo;{currentParsed.comentario}&rdquo;</p>
+          )}
         </div>
       )}
 
@@ -118,8 +135,8 @@ export default function Home() {
         onSkip={current ? handleIgnorar : undefined}
         preload={current ? {
           amount: String(current.monto),
-          description: current.comercio,
-          date: current.fecha ?? todayISO(),
+          description: currentParsed?.comentario ?? "",
+          date: currentFecha ?? todayISO(),
         } : undefined}
       />
     </main>
