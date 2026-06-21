@@ -58,7 +58,10 @@ function extractText(payload: GmailMessageFull["payload"]): string {
     return null;
   }
 
-  if (payload.body?.data) return decodeBase64(payload.body.data);
+  if (payload.body?.data) {
+    const decoded = decodeBase64(payload.body.data);
+    return payload.mimeType === "text/html" ? stripHtml(decoded) : decoded;
+  }
 
   // Prefer HTML (Santander's text/plain sometimes starts with CSS)
   const html = findPart(payload.parts, "text/html");
