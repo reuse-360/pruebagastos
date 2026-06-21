@@ -256,6 +256,7 @@ export async function POST(request: NextRequest) {
           .eq("monto", datos.monto)
           .eq("comercio", datos.comercio)
           .eq("fecha", datos.fecha ?? "")
+          .in("estado", ["pendiente", "guardado"])
           .limit(1);
 
         if (existing && existing.length > 0) {
