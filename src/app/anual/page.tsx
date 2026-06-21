@@ -121,6 +121,9 @@ export default function AnualPage() {
     ]);
     setData(result);
     setOptimos(opts);
+    // Pre-select all categories that have data
+    const withData = result.categories.filter((cat) => (result.categoryTotals[cat] ?? 0) > 0);
+    setSelectedCats(new Set(withData));
     setLoading(false);
   }, [year, person]);
 
@@ -189,8 +192,8 @@ export default function AnualPage() {
                 <th key={m} className="text-right px-2 py-2 font-medium min-w-[68px]">{m}</th>
               ))}
               <th className="text-right px-3 py-2 font-medium min-w-[88px] border-l">Total</th>
-              <th className="text-right px-3 py-2 font-medium min-w-[108px] border-l">Óptimo mensual</th>
-              <th className="text-right px-3 py-2 font-medium min-w-[60px]">%</th>
+              <th className="sticky right-[60px] bg-muted/50 z-10 text-right px-3 py-2 font-medium min-w-[108px] border-l border-r">Óptimo mensual</th>
+              <th className="sticky right-0 bg-muted/50 z-10 text-right px-3 py-2 font-medium min-w-[60px]">%</th>
             </tr>
           </thead>
           <tbody>
@@ -221,10 +224,10 @@ export default function AnualPage() {
                   <td className="px-3 py-2 text-right font-semibold whitespace-nowrap tabular-nums border-l">
                     {catTotal > 0 ? formatCLP(catTotal) : <span className="text-muted-foreground/30">—</span>}
                   </td>
-                  <td className="px-3 py-2 text-right border-l">
+                  <td className={`sticky right-[60px] z-10 px-3 py-2 text-right border-l border-r ${idx % 2 === 1 ? "bg-muted/10" : "bg-background"}`}>
                     <OptInput value={optimo} onChange={(v) => updateOptimo(cat, v)} />
                   </td>
-                  <td className="px-3 py-2 text-right text-muted-foreground text-xs whitespace-nowrap">
+                  <td className={`sticky right-0 z-10 px-3 py-2 text-right text-muted-foreground text-xs whitespace-nowrap ${idx % 2 === 1 ? "bg-muted/10" : "bg-background"}`}>
                     {pct ? `${pct}%` : <span className="text-muted-foreground/30">—</span>}
                   </td>
                 </tr>
@@ -243,10 +246,10 @@ export default function AnualPage() {
                 <td className="px-3 py-2 text-right font-bold whitespace-nowrap tabular-nums border-l">
                   {formatCLP(data.grandTotal)}
                 </td>
-                <td className="px-3 py-2 text-right border-l font-semibold tabular-nums text-xs">
+                <td className="sticky right-[60px] bg-muted/40 z-10 px-3 py-2 text-right border-l border-r font-semibold tabular-nums text-xs">
                   {totalOptimos > 0 ? formatCLP(totalOptimos) : ""}
                 </td>
-                <td className="px-3 py-2 text-right text-xs">
+                <td className="sticky right-0 bg-muted/40 z-10 px-3 py-2 text-right text-xs">
                   {totalOptimos > 0 ? "100%" : ""}
                 </td>
               </tr>
@@ -283,7 +286,7 @@ export default function AnualPage() {
 
             {selectedArr.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-8">
-                Selecciona una o más categorías para ver su evolución
+                Haz clic en una categoría para mostrarla
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
