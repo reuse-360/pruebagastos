@@ -201,13 +201,13 @@ export async function GET(request: NextRequest) {
       }
       return { query: q, count: msgs.length, texts };
     }
-    const [santander, itauExacto, itauSubject, itauBroad] = await Promise.all([
+    const [santander, santanderBroad, itauExacto, itauSubject] = await Promise.all([
       queryAndFetch('from:mensajeria@santander.cl subject:"Comprobante Transferencia de fondos" is:unread'),
+      queryAndFetch('from:mensajeria@santander.cl is:unread'),
       queryAndFetch('from:transferencias@itau.cl is:unread'),
       queryAndFetch('subject:"Itau informa" is:unread'),
-      queryAndFetch('itau transferencia is:unread newer_than:60d'),
     ]);
-    return NextResponse.json({ santander, itauExacto, itauSubject, itauBroad });
+    return NextResponse.json({ santander, santanderBroad, itauExacto, itauSubject });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
