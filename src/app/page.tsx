@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail } from "lucide-react";
 import { TransactionForm } from "@/components/TransactionForm";
 import { fetchSugerenciasPendientes, marcarSugerencia, parsearTextoSugerencia, type Sugerencia } from "@/lib/queries";
 import { formatCLP } from "@/lib/constants";
@@ -21,14 +20,31 @@ export default function Home() {
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [idx, setIdx] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [checkingGmail, setCheckingGmail] = useState(false);
-  const [gmailMsg, setGmailMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchSugerenciasPendientes().then((data) => {
-      setSugerencias(data);
+    async function init() {
+      // Revisar Gmail al abrir, luego cargar pendientes
+      try {
+        const res = await fetch("/api/gmail", {
+          method: "POST",
+          headers: { "x-api-key": "reuse2002" },
+        });
+        const data = await res.json();
+        if (data.nuevas > 0) {
+          const updated = await fetchSugerenciasPendientes();
+          setSugerencias(updated);
+        } else {
+          const pendientes = await fetchSugerenciasPendientes();
+          setSugerencias(pendientes);
+        }
+      } catch {
+        // Si Gmail falla, igual cargamos las pendientes que ya estaban
+        const pendientes = await fetchSugerenciasPendientes();
+        setSugerencias(pendientes);
+      }
       setLoading(false);
-    });
+    }
+    init();
   }, []);
 
   const current = sugerencias[idx] ?? null;
@@ -47,30 +63,6 @@ export default function Home() {
     avanzar();
   }
 
-  async function handleGmail() {
-    setCheckingGmail(true);
-    setGmailMsg(null);
-    try {
-      const res = await fetch("/api/gmail", {
-        method: "POST",
-        headers: { "x-api-key": "reuse2002" },
-      });
-      const data = await res.json();
-      if (data.nuevas > 0) {
-        setGmailMsg(`${data.nuevas} transferencia${data.nuevas > 1 ? "s" : ""} nueva${data.nuevas > 1 ? "s" : ""} encontrada${data.nuevas > 1 ? "s" : ""}`);
-        const updated = await fetchSugerenciasPendientes();
-        setSugerencias(updated);
-        setIdx(0);
-      } else {
-        setGmailMsg("Sin transferencias nuevas");
-      }
-    } catch {
-      setGmailMsg("Error al conectar con Gmail");
-    }
-    setCheckingGmail(false);
-    setTimeout(() => setGmailMsg(null), 4000);
-  }
-
   function avanzar() {
     if (hayMas) setIdx((i) => i + 1);
     else setIdx(total); // termina el flujo
@@ -81,21 +73,10 @@ export default function Home() {
   return (
     <main className="container mx-auto max-w-lg px-4 py-8 space-y-4">
 
-      {/* Botón Gmail */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Agregar gasto</h1>
-        <button
-          onClick={handleGmail}
-          disabled={checkingGmail}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm border border-input text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
-        >
-          <Mail size={14} />
-          {checkingGmail ? "Revisando…" : "Revisar Gmail"}
-        </button>
+        {loading && <span className="text-xs text-muted-foreground animate-pulse">Revisando…</span>}
       </div>
-      {gmailMsg && (
-        <p className="text-xs text-center text-muted-foreground">{gmailMsg}</p>
-      )}
 
       {/* Banner de sugerencias */}
       {!loading && total > 0 && !terminado && (
