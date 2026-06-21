@@ -7,14 +7,16 @@ const supabase = createClient(
 );
 
 async function getUsdToCLP(): Promise<number> {
-  // Intenta dos APIs gratuitas, sin clave
+  // Dólar observado del Banco Central de Chile (misma base que usa Santander)
   try {
-    const res = await fetch("https://open.er-api.com/v6/latest/USD", { next: { revalidate: 3600 } });
-    const data = await res.json() as { rates?: { CLP?: number } };
-    if (data.rates?.CLP) return data.rates.CLP;
+    const res = await fetch("https://mindicador.cl/api/dolar");
+    const data = await res.json() as { serie?: { valor: number }[] };
+    const valor = data.serie?.[0]?.valor;
+    if (valor && valor > 0) return valor;
   } catch { /* continúa */ }
+  // Fallback: open.er-api
   try {
-    const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=CLP");
+    const res = await fetch("https://open.er-api.com/v6/latest/USD");
     const data = await res.json() as { rates?: { CLP?: number } };
     if (data.rates?.CLP) return data.rates.CLP;
   } catch { /* continúa */ }
