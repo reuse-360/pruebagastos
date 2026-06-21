@@ -28,12 +28,12 @@ function parsearNotificacion(texto: string): { comercio: string; monto: number; 
   }
   if (isNaN(monto) || monto === 0) return null;
 
-  // Comercio: después de "en " o "em " antes de la fecha DD/MM/YYYY
-  const comercioMatch = texto.match(/\b(?:en|em)\s+(.+?)\s+\d{2}\/\d{2}\/\d{4}/i);
+  // Comercio: después de "en " antes de la fecha (DD/MM/YYYY o DD-MM-YYYY), con posible ", el" antes de la fecha
+  const comercioMatch = texto.match(/\b(?:en|em)\s+(.+?),?\s*(?:el\s+)?\d{2}[-\/]\d{2}[-\/]\d{4}/i);
   const comercio = (comercioMatch?.[1]?.trim() ?? "Tarjeta") + (esUsd ? " (USD)" : "");
 
-  // Fecha
-  const fechaMatch = texto.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  // Fecha: soporta DD/MM/YYYY y DD-MM-YYYY
+  const fechaMatch = texto.match(/(\d{2})[-\/](\d{2})[-\/](\d{4})/);
   const fecha = fechaMatch ? `${fechaMatch[3]}-${fechaMatch[2].padStart(2,"0")}-${fechaMatch[1].padStart(2,"0")}` : undefined;
 
   return { comercio, monto, fecha, usd: esUsd };
