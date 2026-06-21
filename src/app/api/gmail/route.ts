@@ -82,6 +82,8 @@ function extractRelevantSection(texto: string): string {
 
 function stripHtml(html: string): string {
   return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
@@ -195,7 +197,7 @@ export async function GET(request: NextRequest) {
       for (const m of msgs) {
         const full = await getMessage(token, m.id);
         const raw = extractText(full.payload);
-        texts.push(raw.slice(0, 600));
+        texts.push(raw.slice(0, 2000));
       }
       return { query: q, count: msgs.length, texts };
     }
