@@ -34,6 +34,8 @@ export function parsearTextoSugerencia(texto: string | null): {
   // ── Origen ───────────────────────────────────────────────────────────────
   // Itaú format 2/3: "nuestro(a) cliente NAME ,"
   const itauClienteMatch = texto.match(/nuestro\(a\) cliente\s+(.+?)\s*,/i);
+  // Itaú format 1: "Estimado(a) Cliente: NAME Adjuntamos" — account holder is always the sender
+  const itauEstimadoClienteMatch = texto.match(/Estimado\(a\) Cliente:\s+(.+?)\s+Adjuntamos/i);
   // Santander incoming: "nuestro cliente NAME realizó"
   const santanderIncomingMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
   // Santander outgoing: "Datos de origen ... Nombre NAME ... Comentario/Datos de destino"
@@ -41,6 +43,7 @@ export function parsearTextoSugerencia(texto: string | null): {
 
   const origen =
     itauClienteMatch?.[1]?.trim() ??
+    itauEstimadoClienteMatch?.[1]?.trim() ??
     santanderIncomingMatch?.[1]?.trim() ??
     santanderOrigenMatch?.[1]?.trim() ??
     null;
