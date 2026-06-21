@@ -136,8 +136,8 @@ function parsearTransferencia(texto: string): { monto: number; comercio: string;
     ? origenMatch[1].trim()
     : (destMatch ? destMatch[1].trim() : "Transferencia");
 
-  // "con fecha DD/MM/YYYY"
-  const fechaMatch = texto.match(/con fecha\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  // "con fecha DD/MM/YYYY" (incoming) o "realizada el DD/MM/YYYY" (outgoing)
+  const fechaMatch = texto.match(/(?:con fecha|realizada el)\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
   let fecha: string | null = null;
   if (fechaMatch) {
     const [d, m, y] = fechaMatch[1].split("/");

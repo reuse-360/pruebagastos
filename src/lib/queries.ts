@@ -39,8 +39,8 @@ export function parsearTextoSugerencia(texto: string | null): {
   const destinoMatch = texto.match(/Datos de destino\s+Nombre\s+(.*?)\s+RUT/i);
   const destino = destinoMatch ? destinoMatch[1].trim() : null;
 
-  // "con fecha DD/MM/YYYY"
-  const fechaMatch = texto.match(/con fecha\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  // "con fecha DD/MM/YYYY" (incoming) o "realizada el DD/MM/YYYY" (outgoing)
+  const fechaMatch = texto.match(/(?:con fecha|realizada el)\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
   let fechaTransferencia: string | null = null;
   if (fechaMatch) {
     const [d, m, y] = fechaMatch[1].split("/");
