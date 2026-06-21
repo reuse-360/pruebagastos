@@ -151,9 +151,6 @@ export default function AnualPage() {
   const allCategories = data?.categories ?? [];
   const totalOptimos = allCategories.reduce((s, cat) => s + (optimos[cat] ?? 0), 0);
 
-  // Para el gráfico solo mostrar las que tienen datos
-  const allCategories = allCategories.filter((cat) => (data?.categoryTotals[cat] ?? 0) > 0);
-
   const chartData = MESES_CORTOS.map((mes, m) => {
     const point: Record<string, number | string> = { mes };
     for (const cat of selectedCats) {
