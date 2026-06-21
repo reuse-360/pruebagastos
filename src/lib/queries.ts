@@ -31,9 +31,13 @@ export function parsearTextoSugerencia(texto: string | null): {
 } {
   if (!texto) return { origen: null, destino: null, fechaTransferencia: null, comentario: null };
 
-  // "nuestro cliente NOMBRE realizó una transferencia"
-  const origenMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
-  const origen = origenMatch ? origenMatch[1].trim() : null;
+  // Incoming: "nuestro cliente NOMBRE realizó una transferencia"
+  const origenIncomingMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
+  // Outgoing: "Datos de origen ... Nombre NAME ... Comentario/Datos de destino"
+  const origenOutgoingMatch = texto.match(/Datos de origen[\s\S]*?Nombre\s+(.*?)(?:\s+Comentario|\s+Datos de destino)/i);
+  const origen = origenIncomingMatch
+    ? origenIncomingMatch[1].trim()
+    : (origenOutgoingMatch ? origenOutgoingMatch[1].trim() : null);
 
   // "Datos de destino Nombre NOMBRE RUT..."
   const destinoMatch = texto.match(/Datos de destino\s+Nombre\s+(.*?)\s+RUT/i);
