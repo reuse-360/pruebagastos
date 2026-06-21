@@ -7,13 +7,18 @@ const supabase = createClient(
 );
 
 async function getUsdToCLP(): Promise<number> {
+  // Intenta dos APIs gratuitas, sin clave
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD", { next: { revalidate: 3600 } });
+    const data = await res.json() as { rates?: { CLP?: number } };
+    if (data.rates?.CLP) return data.rates.CLP;
+  } catch { /* continúa */ }
   try {
     const res = await fetch("https://api.frankfurter.app/latest?from=USD&to=CLP");
     const data = await res.json() as { rates?: { CLP?: number } };
-    return data.rates?.CLP ?? 950;
-  } catch {
-    return 950; // fallback si falla la API
-  }
+    if (data.rates?.CLP) return data.rates.CLP;
+  } catch { /* continúa */ }
+  return 950;
 }
 
 // Formato CLP: "Transacción por $ 10.000. se realizó una compra/pago con tu Tarjeta ****XXXX en COMERCIO, el DD-MM-YYYY a las HH:MM:SS"
