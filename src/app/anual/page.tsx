@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchAnnualData } from "@/lib/queries";
 import { formatCLP } from "@/lib/constants";
 import { supabase } from "@/lib/supabase";
+import { ChevronDown } from "lucide-react";
 
 type Person = "gon" | "pau";
 
@@ -111,6 +112,7 @@ export default function AnualPage() {
   const [data, setData] = useState<Awaited<ReturnType<typeof fetchAnnualData>> | null>(null);
   const [optimos, setOptimos] = useState<Record<string, number>>({});
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -265,28 +267,68 @@ export default function AnualPage() {
             <CardTitle className="text-sm">Evolución mensual</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex flex-wrap gap-1.5">
-              {catsConDatos.map((cat, i) => {
-                const color = LINE_COLORS[i % LINE_COLORS.length];
-                const active = selectedCats.has(cat);
-                return (
-                  <button
-                    key={cat}
-                    onClick={() => toggleCat(cat)}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                      active ? "text-white border-transparent" : "text-muted-foreground border-muted-foreground/30 hover:border-muted-foreground/60"
-                    }`}
-                    style={active ? { background: color, borderColor: color } : {}}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
+            {/* Selector de categorías */}
+            <div className="space-y-2">
+              <button
+                onClick={() => setFilterOpen((o) => !o)}
+                className="flex items-center justify-between w-full px-3 py-2 rounded-md border text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <span>
+                  Categorías
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">
+                    {selectedArr.length} de {catsConDatos.length} seleccionadas
+                  </span>
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`text-muted-foreground transition-transform ${filterOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+
+              {filterOpen && (
+                <div className="rounded-md border p-3 space-y-3 bg-muted/20">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSelectedCats(new Set(catsConDatos))}
+                      className="text-xs px-2.5 py-1 rounded border hover:bg-muted transition-colors"
+                    >
+                      Todas
+                    </button>
+                    <button
+                      onClick={() => setSelectedCats(new Set())}
+                      className="text-xs px-2.5 py-1 rounded border hover:bg-muted transition-colors"
+                    >
+                      Ninguna
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {catsConDatos.map((cat, i) => {
+                      const color = LINE_COLORS[i % LINE_COLORS.length];
+                      const active = selectedCats.has(cat);
+                      return (
+                        <label key={cat} className="flex items-center gap-2 cursor-pointer select-none">
+                          <span
+                            className="inline-block w-3 h-3 rounded-sm flex-shrink-0 border"
+                            style={active ? { background: color, borderColor: color } : { borderColor: color }}
+                          />
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={active}
+                            onChange={() => toggleCat(cat)}
+                          />
+                          <span className="text-xs truncate">{cat}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {selectedArr.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-8">
-                Haz clic en una categoría para mostrarla
+                Selecciona al menos una categoría
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
