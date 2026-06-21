@@ -16,13 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Gastos App",
+  title: "Gastos Re-use",
   description: "Gestión de gastos personales",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Gastos App",
+    title: "Gastos Re-use",
   },
   icons: {
     apple: "/icons/icon-192x192.png",

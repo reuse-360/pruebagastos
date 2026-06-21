@@ -1,6 +1,6 @@
 {
-  "name": "Gastos App",
-  "short_name": "Gastos",
+  "name": "Gastos Re-use",
+  "short_name": "Gastos Re-use",
   "description": "Gestión de gastos personales",
   "start_url": "/",
   "scope": "/",
