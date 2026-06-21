@@ -93,6 +93,9 @@ export default function Home() {
               <span className="text-sm font-normal text-muted-foreground"> · {formatFecha(currentFecha)}</span>
             )}
           </p>
+          {!currentParsed?.origen && !currentParsed?.destino && current!.comercio && (
+            <p className="text-sm font-medium">{current!.comercio}</p>
+          )}
           {currentParsed?.origen && (
             <p className="text-xs text-muted-foreground">De: <span className="font-medium text-foreground">{currentParsed.origen}</span></p>
           )}
