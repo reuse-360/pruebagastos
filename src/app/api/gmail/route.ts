@@ -169,7 +169,6 @@ export async function POST(request: NextRequest) {
           comercio: datos.destinatario,
           monto: datos.monto,
           texto_original: texto.slice(0, 500),
-          ...(datos.comentario ? { comentario: datos.comentario } : {}),
         });
 
         if (error) {
