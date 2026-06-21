@@ -35,6 +35,64 @@ interface RowPau {
   descripcion: string | null; valor_original: number; valor_pau: number;
 }
 
+function PushTester() {
+  const [texto, setTexto] = useState("");
+  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function probar() {
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/sugerencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": "reuse2002" },
+        body: JSON.stringify({ texto }),
+      });
+      const data = await res.json() as Record<string, unknown>;
+      if (res.ok) {
+        setResult({ ok: true, msg: `✓ Comercio: ${data.comercio} | Monto: $${(data.monto as number).toLocaleString("es-CL")} | Fecha: ${data.fecha ?? "sin fecha"}` });
+      } else {
+        setResult({ ok: false, msg: `Error ${res.status}: ${data.error ?? JSON.stringify(data)}` });
+      }
+    } catch (e) {
+      setResult({ ok: false, msg: String(e) });
+    }
+    setLoading(false);
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          Probar push notification
+          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-medium">debug</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder='Pega aquí el texto de la notificación de Santander&#10;Ej: "Banco Santander transacción por $15.990 se realizó un pago con tu Tarjeta de Crédito ****7385 en SUPERMERCADO 20/06/2026 14:32:01"'
+          className="w-full h-24 text-xs rounded-md border border-input bg-transparent px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <button
+          onClick={probar}
+          disabled={!texto.trim() || loading}
+          className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+        >
+          {loading ? "Probando…" : "Probar"}
+        </button>
+        {result && (
+          <p className={`text-xs rounded-md px-3 py-2 ${result.ok ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
+            {result.msg}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function BasePage() {
   const now = new Date();
   const [person, setPerson] = useState<Person>("gon");
@@ -143,6 +201,9 @@ export default function BasePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Test push notification */}
+      <PushTester />
 
       {/* Tabla completa */}
       <Card>
