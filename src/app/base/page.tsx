@@ -51,7 +51,9 @@ function PushTester() {
       });
       const data = await res.json() as Record<string, unknown>;
       if (res.ok) {
-        setResult({ ok: true, msg: `✓ Comercio: ${data.comercio} | Monto: $${(data.monto as number).toLocaleString("es-CL")} | Fecha: ${data.fecha ?? "sin fecha"}` });
+        const fechaISO = data.fecha as string | undefined;
+        const fechaFmt = fechaISO ? fechaISO.split("-").reverse().join("/") : "sin fecha";
+        setResult({ ok: true, msg: `✓ Comercio: ${data.comercio} | Monto: $${(data.monto as number).toLocaleString("es-CL")} | Fecha: ${fechaFmt}` });
       } else {
         setResult({ ok: false, msg: `Error ${res.status}: ${data.error ?? JSON.stringify(data)}` });
       }
