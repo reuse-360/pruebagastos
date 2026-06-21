@@ -73,8 +73,8 @@ export function parsearTextoSugerencia(texto: string | null): {
   // ── Comentario ────────────────────────────────────────────────────────────
   // Santander: "Comentario TEXT Datos de destino/Antes de/Nota:"
   const santanderComentarioMatch = texto.match(/\bComentario\b\s+(.*?)(?:\s+Datos de destino|\s+Antes de|\s+Nota:)/i);
-  // Itaú format 2/3: "el siguiente comentario:\n TEXT[Itau]"
-  const itauLargoMatch = texto.match(/el siguiente comentario[:\s]+([\s\S]*?)(?:Itau|$)/i);
+  // Itaú format 2/3: "el siguiente comentario: TEXT" (comment on same line as label)
+  const itauLargoMatch = texto.match(/el siguiente comentario:\s+([^\n\r]+)/i);
   // Itaú format 1: "Comentario\n TEXT\n Número/Monto:"
   const itauCortoMatch = texto.match(/\bComentario\b\s+([\s\S]*?)(?:\s+N[uú]mero|\s+Monto:)/i);
 
