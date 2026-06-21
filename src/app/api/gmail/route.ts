@@ -69,7 +69,7 @@ function extractText(payload: GmailMessageFull["payload"]): string {
 
 // Devuelve el texto desde donde empieza el contenido real del correo
 function extractRelevantSection(texto: string): string {
-  const markers = ["con fecha", "Estimado", "Te informamos", "Monto transferido"];
+  const markers = ["con fecha", "Estimado", "Te informamos", "Monto transferido", "Numero de Transaccion", "Fecha - Hora"];
   for (const m of markers) {
     const idx = texto.toLowerCase().indexOf(m.toLowerCase());
     if (idx > 0) return texto.slice(Math.max(0, idx - 30), idx + 1500);
@@ -90,15 +90,19 @@ function stripHtml(html: string): string {
 }
 
 async function searchMessages(token: string): Promise<GmailMessage[]> {
-  const q = encodeURIComponent(
-    'from:mensajeria@santander.cl subject:"Comprobante Transferencia de fondos" is:unread'
-  );
-  const res = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${q}&maxResults=20`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  const data = await res.json() as { messages?: GmailMessage[] };
-  return data.messages ?? [];
+  async function query(q: string): Promise<GmailMessage[]> {
+    const res = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(q)}&maxResults=20`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const data = await res.json() as { messages?: GmailMessage[] };
+    return data.messages ?? [];
+  }
+  const [santander, itau] = await Promise.all([
+    query('from:mensajeria@santander.cl subject:"Comprobante Transferencia de fondos" is:unread'),
+    query('from:transferencias@itau.cl is:unread'),
+  ]);
+  return [...santander, ...itau];
 }
 
 async function getMessage(token: string, id: string): Promise<GmailMessageFull> {
@@ -123,31 +127,86 @@ async function markAsRead(token: string, id: string): Promise<void> {
 // ── Parser ──────────────────────────────────────────────────────────────────
 
 function parsearTransferencia(texto: string): { monto: number; comercio: string; fecha: string | null } | null {
-  const montoMatch = texto.match(/Monto transferido[\s\S]{0,80}\$\s*([\d.]+)/i);
+  // ── Monto ──────────────────────────────────────────────────────────────────
+  // Itaú: "Monto:      $35.000"
+  // Santander: "Monto transferido ... $ 80.000"
+  const montoMatch =
+    texto.match(/Monto:\s*\$\s*([\d.]+)/i) ??
+    texto.match(/Monto transferido[\s\S]{0,80}\$\s*([\d.]+)/i);
   if (!montoMatch) return null;
   const monto = parseInt(montoMatch[1].replace(/\./g, ""));
   if (isNaN(monto)) return null;
 
-  // Preferir sender ("nuestro cliente NAME realizó") como comercio
-  const origenMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
-  // Fallback: nombre destino cortando antes de "RUT"
-  const destMatch = texto.match(/Datos de destino\s+Nombre\s+(.*?)\s+RUT/i);
-  const comercio = origenMatch
-    ? origenMatch[1].trim()
-    : (destMatch ? destMatch[1].trim() : "Transferencia");
-
-  // "con fecha DD/MM/YYYY" (incoming) o "realizada el DD/MM/YYYY" (outgoing)
-  const fechaMatch = texto.match(/(?:con fecha|realizada el)\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  // ── Fecha ───────────────────────────────────────────────────────────────────
+  // Itaú format 1: "Fecha - Hora    14/06/2026-HH:MM:SS"
+  // Itaú format 2/3 & Santander: "con fecha DD/MM/YYYY"
+  // Santander outgoing: "realizada el DD/MM/YYYY"
+  const fechaMatch = texto.match(/(?:Fecha - Hora|con fecha|realizada el)\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
   let fecha: string | null = null;
   if (fechaMatch) {
     const [d, m, y] = fechaMatch[1].split("/");
     fecha = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
 
+  // ── Comercio ────────────────────────────────────────────────────────────────
+  // Santander incoming: "nuestro cliente NAME realizó"
+  const santanderIncomingMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
+  // Itaú format 2/3 titular (recipient): "Titular Cuenta:      NAME"
+  const itauTitularMatch = texto.match(/Titular Cuenta:\s*([^\n\r]*?)(?=\s*(?:Monto:|Banco:|Rut\b|N[uú]mero|\s{2,})|[\n\r]|$)/i);
+  // Itaú format 2/3 sender: "nuestro(a) cliente NAME ,"
+  const itauClienteMatch = texto.match(/nuestro\(a\) cliente\s+(.+?)\s*,/i);
+  // Itaú format 1: "Nombre NAME" in destination section
+  const itauDestinoMatch = texto.match(/Datos de la Cuenta de Destino[\s\S]{0,300}Nombre\s+(.*?)(?:\s+Rut|\s+E-mail|\s+Banco)/i);
+  // Santander outgoing: "Datos de destino Nombre NAME RUT"
+  const santanderDestinoMatch = texto.match(/Datos de destino\s+Nombre\s+(.*?)\s+RUT/i);
+
+  const comercio =
+    santanderIncomingMatch?.[1]?.trim() ??
+    itauTitularMatch?.[1]?.trim() ??
+    itauClienteMatch?.[1]?.trim() ??
+    itauDestinoMatch?.[1]?.trim() ??
+    santanderDestinoMatch?.[1]?.trim() ??
+    "Transferencia";
+
   return { monto, comercio, fecha };
 }
 
 // ── Handler ─────────────────────────────────────────────────────────────────
+
+export async function GET(request: NextRequest) {
+  // Acepta key como header o como query param para abrirlo directo desde el browser
+  const auth = request.headers.get("x-api-key") ?? new URL(request.url).searchParams.get("key");
+  if (auth !== process.env.AUTH_PASSWORD) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  try {
+    const token = await getAccessToken();
+    async function queryAndFetch(q: string) {
+      const res = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(q)}&maxResults=5`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json() as { messages?: GmailMessage[] };
+      const msgs = data.messages ?? [];
+      const texts: string[] = [];
+      for (const m of msgs) {
+        const full = await getMessage(token, m.id);
+        const raw = extractText(full.payload);
+        texts.push(raw.slice(0, 600));
+      }
+      return { query: q, count: msgs.length, texts };
+    }
+    const [santander, itauExacto, itauSubject, itauBroad] = await Promise.all([
+      queryAndFetch('from:mensajeria@santander.cl subject:"Comprobante Transferencia de fondos" is:unread'),
+      queryAndFetch('from:transferencias@itau.cl is:unread'),
+      queryAndFetch('subject:"Itau informa" is:unread'),
+      queryAndFetch('itau transferencia is:unread newer_than:60d'),
+    ]);
+    return NextResponse.json({ santander, itauExacto, itauSubject, itauBroad });
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
 
 export async function POST(request: NextRequest) {
   const auth = request.headers.get("x-api-key");

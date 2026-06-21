@@ -22,7 +22,7 @@ export async function marcarSugerencia(id: string, estado: "guardado" | "ignorad
   await supabase.from("sugerencias").update({ estado }).eq("id", id);
 }
 
-// Parsea texto_original del correo para extraer datos limpios
+// Parsea texto_original del correo para extraer datos limpios (Santander e Itaú)
 export function parsearTextoSugerencia(texto: string | null): {
   origen: string | null;
   destino: string | null;
@@ -31,29 +31,58 @@ export function parsearTextoSugerencia(texto: string | null): {
 } {
   if (!texto) return { origen: null, destino: null, fechaTransferencia: null, comentario: null };
 
-  // Incoming: "nuestro cliente NOMBRE realizó una transferencia"
-  const origenIncomingMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
-  // Outgoing: "Datos de origen ... Nombre NAME ... Comentario/Datos de destino"
-  const origenOutgoingMatch = texto.match(/Datos de origen[\s\S]*?Nombre\s+(.*?)(?:\s+Comentario|\s+Datos de destino)/i);
-  const origen = origenIncomingMatch
-    ? origenIncomingMatch[1].trim()
-    : (origenOutgoingMatch ? origenOutgoingMatch[1].trim() : null);
+  // ── Origen ───────────────────────────────────────────────────────────────
+  // Itaú format 2/3: "nuestro(a) cliente NAME ,"
+  const itauClienteMatch = texto.match(/nuestro\(a\) cliente\s+(.+?)\s*,/i);
+  // Santander incoming: "nuestro cliente NAME realizó"
+  const santanderIncomingMatch = texto.match(/nuestro cliente\s+(.+?)\s+realizó/i);
+  // Santander outgoing: "Datos de origen ... Nombre NAME ... Comentario/Datos de destino"
+  const santanderOrigenMatch = texto.match(/Datos de origen[\s\S]*?Nombre\s+(.*?)(?:\s+Comentario|\s+Datos de destino)/i);
 
-  // "Datos de destino Nombre NOMBRE RUT..."
-  const destinoMatch = texto.match(/Datos de destino\s+Nombre\s+(.*?)\s+RUT/i);
-  const destino = destinoMatch ? destinoMatch[1].trim() : null;
+  const origen =
+    itauClienteMatch?.[1]?.trim() ??
+    santanderIncomingMatch?.[1]?.trim() ??
+    santanderOrigenMatch?.[1]?.trim() ??
+    null;
 
-  // "con fecha DD/MM/YYYY" (incoming) o "realizada el DD/MM/YYYY" (outgoing)
-  const fechaMatch = texto.match(/(?:con fecha|realizada el)\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+  // ── Destino ───────────────────────────────────────────────────────────────
+  // Itaú format 2/3: "Titular Cuenta:      NAME"
+  const itauTitularMatch = texto.match(/Titular Cuenta:\s*([^\n\r]*?)(?=\s*(?:Monto:|Banco:|Rut\b|N[uú]mero|\s{2,})|[\n\r]|$)/i);
+  // Itaú format 1: "Nombre NAME" in "Datos de la Cuenta de Destino"
+  const itauDestinoMatch = texto.match(/Datos de la Cuenta de Destino[\s\S]{0,300}Nombre\s+(.*?)(?:\s+Rut|\s+E-mail|\s+Banco)/i);
+  // Santander: "Datos de destino Nombre NAME RUT"
+  const santanderDestinoMatch = texto.match(/Datos de destino\s+Nombre\s+(.*?)\s+RUT/i);
+
+  const destino =
+    itauTitularMatch?.[1]?.trim() ??
+    itauDestinoMatch?.[1]?.trim() ??
+    santanderDestinoMatch?.[1]?.trim() ??
+    null;
+
+  // ── Fecha ─────────────────────────────────────────────────────────────────
+  // Itaú format 1: "Fecha - Hora    14/06/2026-HH:MM"
+  // Itaú format 2/3 & Santander: "con fecha DD/MM/YYYY"
+  // Santander outgoing: "realizada el DD/MM/YYYY"
+  const fechaMatch = texto.match(/(?:Fecha - Hora|con fecha|realizada el)\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);
   let fechaTransferencia: string | null = null;
   if (fechaMatch) {
     const [d, m, y] = fechaMatch[1].split("/");
     fechaTransferencia = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
 
-  // "Comentario TEXTO Datos de destino..." o "Comentario TEXTO Antes de..." o "Comentario TEXTO Nota:"
-  const comentarioMatch = texto.match(/Comentario\s+(.*?)(?:\s+Datos de destino|\s+Antes de|\s+Nota:|$)/i);
-  const comentario = comentarioMatch ? comentarioMatch[1].trim() : null;
+  // ── Comentario ────────────────────────────────────────────────────────────
+  // Santander: "Comentario TEXT Datos de destino/Antes de/Nota:"
+  const santanderComentarioMatch = texto.match(/\bComentario\b\s+(.*?)(?:\s+Datos de destino|\s+Antes de|\s+Nota:)/i);
+  // Itaú format 2/3: "el siguiente comentario:\n TEXT[Itau]"
+  const itauLargoMatch = texto.match(/el siguiente comentario[:\s]+([\s\S]*?)(?:Itau|$)/i);
+  // Itaú format 1: "Comentario\n TEXT\n Número/Monto:"
+  const itauCortoMatch = texto.match(/\bComentario\b\s+([\s\S]*?)(?:\s+N[uú]mero|\s+Monto:)/i);
+
+  const comentario =
+    santanderComentarioMatch?.[1]?.trim() ??
+    itauLargoMatch?.[1]?.trim() ??
+    itauCortoMatch?.[1]?.trim() ??
+    null;
 
   return { origen, destino, fechaTransferencia, comentario };
 }
