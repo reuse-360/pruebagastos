@@ -47,8 +47,8 @@ export function parsearTextoSugerencia(texto: string | null): {
     fechaTransferencia = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
   }
 
-  // "Comentario TEXTO Antes de imprimir..." o "Comentario TEXTO Nota:"
-  const comentarioMatch = texto.match(/Comentario\s+(.*?)(?:\s+Antes de|\s+Nota:|$)/i);
+  // "Comentario TEXTO Datos de destino..." o "Comentario TEXTO Antes de..." o "Comentario TEXTO Nota:"
+  const comentarioMatch = texto.match(/Comentario\s+(.*?)(?:\s+Datos de destino|\s+Antes de|\s+Nota:|$)/i);
   const comentario = comentarioMatch ? comentarioMatch[1].trim() : null;
 
   return { origen, destino, fechaTransferencia, comentario };
