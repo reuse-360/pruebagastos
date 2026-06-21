@@ -87,8 +87,6 @@ export function Nav() {
         </div>
       </nav>
 
-      {/* Spacer so content doesn't hide behind bottom bar on mobile */}
-      <div className="h-16 sm:hidden" />
     </>
   );
 }

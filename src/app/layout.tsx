@@ -51,7 +51,9 @@ export default function RootLayout({
         <ThemeProvider>
           <SerwistProvider swUrl="/serwist/sw.js">
             <Nav />
-            {children}
+            <main className="flex-1 pb-16 sm:pb-0">
+              {children}
+            </main>
           </SerwistProvider>
         </ThemeProvider>
       </body>
