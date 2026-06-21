@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Buscar correos de Santander con ese asunto, no vistos aún
     const uids = await client.search({
-      from: "santander",
+      from: "mensajeria@santander.cl",
       subject: "Comprobante Transferencia de fondos",
       seen: false,
     }) as number[];
