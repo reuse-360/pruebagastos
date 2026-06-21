@@ -205,7 +205,6 @@ export default function AnualPage() {
                   </th>
                 );
               })}
-              <th className="text-right px-3 py-2 font-medium min-w-[88px] border-l">Total</th>
               <th className="text-right px-3 py-2 font-medium min-w-[108px] border-l">Óptimo mensual</th>
               <th className="text-right px-3 py-2 font-medium min-w-[60px]">%</th>
             </tr>
@@ -245,9 +244,6 @@ export default function AnualPage() {
                       </td>
                     );
                   })}
-                  <td className="px-3 py-2 text-right font-semibold whitespace-nowrap tabular-nums border-l">
-                    {catTotal > 0 ? formatCLP(catTotal) : <span className="text-muted-foreground/30">—</span>}
-                  </td>
                   <td className="px-3 py-2 text-right border-l">
                     <OptInput value={optimo} onChange={(v) => updateOptimo(cat, v)} />
                   </td>
@@ -275,9 +271,6 @@ export default function AnualPage() {
                     </td>
                   );
                 })}
-                <td className="px-3 py-2 text-right font-bold whitespace-nowrap tabular-nums border-l">
-                  {formatCLP(data.grandTotal)}
-                </td>
                 <td className="px-3 py-2 text-right border-l font-semibold tabular-nums text-xs">
                   {totalOptimos > 0 ? formatCLP(totalOptimos) : ""}
                 </td>
