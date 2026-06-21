@@ -249,6 +249,20 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
+        // Dedup: mismo monto + fecha + comercio = misma transferencia (Itaú manda 2 emails por transferencia)
+        const { data: existing } = await supabase
+          .from("sugerencias")
+          .select("id")
+          .eq("monto", datos.monto)
+          .eq("comercio", datos.comercio)
+          .eq("fecha", datos.fecha ?? "")
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          await markAsRead(token, msg.id);
+          continue;
+        }
+
         const { error } = await supabase.from("sugerencias").insert({
           comercio: datos.comercio,
           monto: datos.monto,
