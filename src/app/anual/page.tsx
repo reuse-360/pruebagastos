@@ -113,6 +113,7 @@ export default function AnualPage() {
   const [optimos, setOptimos] = useState<Record<string, number>>({});
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set());
   const [filterOpen, setFilterOpen] = useState(false);
+  const [stickyMonth, setStickyMonth] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -187,9 +188,23 @@ export default function AnualPage() {
               <th className="sticky left-0 bg-muted/50 z-10 text-left px-3 py-2 font-medium min-w-[140px] border-r">
                 Categoría
               </th>
-              {MESES_CORTOS.map((m) => (
-                <th key={m} className="text-right px-2 py-2 font-medium min-w-[68px]">{m}</th>
-              ))}
+              {MESES_CORTOS.map((monthName, idx) => {
+                const pinned = stickyMonth === idx;
+                return (
+                  <th
+                    key={monthName}
+                    onClick={() => setStickyMonth(pinned ? null : idx)}
+                    title={pinned ? "Soltar columna" : "Fijar columna"}
+                    className={`text-right px-2 py-2 font-medium min-w-[68px] cursor-pointer select-none transition-colors ${
+                      pinned
+                        ? "sticky left-[140px] z-20 bg-primary text-primary-foreground border-x"
+                        : "hover:bg-muted/40"
+                    }`}
+                  >
+                    {monthName}
+                  </th>
+                );
+              })}
               <th className="text-right px-3 py-2 font-medium min-w-[88px] border-l">Total</th>
               <th className="text-right px-3 py-2 font-medium min-w-[108px] border-l">Óptimo mensual</th>
               <th className="text-right px-3 py-2 font-medium min-w-[60px]">%</th>
@@ -215,11 +230,21 @@ export default function AnualPage() {
                   <td className={`sticky left-0 z-10 px-3 py-2 font-medium whitespace-nowrap border-r ${idx % 2 === 1 ? "bg-muted/10" : "bg-background"}`}>
                     {cat}
                   </td>
-                  {months.map((v, m) => (
-                    <td key={m} className="px-2 py-2 text-right whitespace-nowrap tabular-nums text-xs">
-                      {v > 0 ? formatCLP(v) : <span className="text-muted-foreground/30">—</span>}
-                    </td>
-                  ))}
+                  {months.map((v, m) => {
+                    const pinned = stickyMonth === m;
+                    return (
+                      <td
+                        key={m}
+                        className={`px-2 py-2 text-right whitespace-nowrap tabular-nums text-xs ${
+                          pinned
+                            ? `sticky left-[140px] z-10 border-x ${idx % 2 === 1 ? "bg-primary/5" : "bg-primary/[0.03]"}`
+                            : ""
+                        }`}
+                      >
+                        {v > 0 ? formatCLP(v) : <span className="text-muted-foreground/30">—</span>}
+                      </td>
+                    );
+                  })}
                   <td className="px-3 py-2 text-right font-semibold whitespace-nowrap tabular-nums border-l">
                     {catTotal > 0 ? formatCLP(catTotal) : <span className="text-muted-foreground/30">—</span>}
                   </td>
@@ -237,11 +262,19 @@ export default function AnualPage() {
             <tfoot>
               <tr className="border-t bg-muted/40 font-semibold">
                 <td className="sticky left-0 bg-muted/40 z-10 px-3 py-2 border-r">TOTAL</td>
-                {data.monthTotals.map((v, m) => (
-                  <td key={m} className="px-2 py-2 text-right whitespace-nowrap tabular-nums text-xs">
-                    {v > 0 ? formatCLP(v) : <span className="text-muted-foreground/30">—</span>}
-                  </td>
-                ))}
+                {data.monthTotals.map((v, m) => {
+                  const pinned = stickyMonth === m;
+                  return (
+                    <td
+                      key={m}
+                      className={`px-2 py-2 text-right whitespace-nowrap tabular-nums text-xs ${
+                        pinned ? "sticky left-[140px] z-10 bg-muted/40 border-x" : ""
+                      }`}
+                    >
+                      {v > 0 ? formatCLP(v) : <span className="text-muted-foreground/30">—</span>}
+                    </td>
+                  );
+                })}
                 <td className="px-3 py-2 text-right font-bold whitespace-nowrap tabular-nums border-l">
                   {formatCLP(data.grandTotal)}
                 </td>
