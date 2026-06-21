@@ -26,10 +26,10 @@ async function getUsdToCLP(): Promise<number> {
 // Formato CLP: "Transacción por $ 10.000. se realizó una compra/pago con tu Tarjeta ****XXXX en COMERCIO, el DD-MM-YYYY a las HH:MM:SS"
 // Formato USD: "Transacción por USD 10,99. se realizó un pago con tu Tarjeta ****XXXX en COMERCIO el DD-MM-YYYY a las HH:MM:SS"
 function parsearNotificacion(texto: string): { comercio: string; montoUsd: number | null; montoCLP: number; fecha?: string } | null {
-  const esUsd = /transacci[oó]n por\s+USD/i.test(texto);
+  const esUsd = /(?:transacci[oó]n|transferencia) por\s+USD/i.test(texto);
 
   const montoMatch =
-    texto.match(/transacci[oó]n por\s+(?:USD\s*)?\$?\s*([\d.,]+)/i) ??
+    texto.match(/(?:transacci[oó]n|transferencia) por\s+(?:USD\s*)?\$?\s*([\d.,]+)/i) ??
     texto.match(/por\s+\$?([\d.,]+)/i);
   if (!montoMatch) return null;
 
