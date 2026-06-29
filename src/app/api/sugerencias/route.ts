@@ -72,6 +72,12 @@ export async function POST(request: NextRequest) {
 
   const parsed = parsearNotificacion(texto);
   if (!parsed) {
+    // Guardar igualmente para poder revisar el formato y arreglar el parser
+    await supabase.from("sugerencias").insert({
+      comercio: "⚠ sin parsear",
+      monto: 0,
+      texto_original: texto,
+    });
     return NextResponse.json({ error: "No se pudo parsear la notificación", texto }, { status: 422 });
   }
 
