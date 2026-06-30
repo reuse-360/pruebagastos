@@ -25,12 +25,17 @@ async function getUsdToCLP(): Promise<number> {
 
 // Formato CLP: "Transacción por $ 10.000. se realizó una compra/pago con tu Tarjeta ****XXXX en COMERCIO, el DD-MM-YYYY a las HH:MM:SS"
 // Formato USD: "Transacción por USD 10,99. se realizó un pago con tu Tarjeta ****XXXX en COMERCIO el DD-MM-YYYY a las HH:MM:SS"
-function parsearNotificacion(texto: string): { comercio: string; montoUsd: number | null; montoCLP: number; fecha?: string } | null {
-  const esUsd = /(?:transacci[oó]n|transferencia) por\s+USD/i.test(texto);
+function parsearNotificacion(textoRaw: string): { comercio: string; montoUsd: number | null; montoCLP: number; fecha?: string } | null {
+  // Normalizar Unicode (ó precompuesto vs descompuesto) y colapsar saltos de línea
+  const texto = textoRaw.normalize("NFC").replace(/[\r\n]+/g, " ");
 
+  const esUsd = /USD/i.test(texto) && /por\s+USD/i.test(texto);
+
+  // Monto: busca "por $ X.XXX" o "por USD X,XX" — con \s* robusto en todos los gaps
   const montoMatch =
-    texto.match(/(?:transacci[oó]n|transferencia) por\s+(?:USD\s*)?\$?\s*([\d.,]+)/i) ??
-    texto.match(/por\s+\$?([\d.,]+)/i);
+    texto.match(/por\s+(?:USD\s*)?\$\s*([\d.,]+)/i) ??
+    texto.match(/por\s+USD\s*([\d.,]+)/i) ??
+    texto.match(/\$\s*([\d.]{3,})/);  // fallback: primer $ seguido de al menos 3 chars numéricos
   if (!montoMatch) return null;
 
   let montoUsd: number | null = null;
