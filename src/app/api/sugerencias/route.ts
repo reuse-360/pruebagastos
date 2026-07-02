@@ -66,7 +66,7 @@ function parsearNotificacion(textoRaw: string): { comercio: string; montoUsd: nu
 }
 
 export async function POST(request: NextRequest) {
-  const auth = request.headers.get("x-api-key");
+  const auth = request.headers.get("x-api-key") ?? new URL(request.url).searchParams.get("key");
   if (auth !== process.env.AUTH_PASSWORD) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
