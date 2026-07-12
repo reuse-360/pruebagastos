@@ -97,8 +97,8 @@ function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Perso
   const total = rows.reduce((s, r) => s + r.valor_persona, 0);
   const totalOriginal = rows.reduce((s, r) => s + r.valor_original, 0);
 
-  const tdStyle = "padding:6px 12px;border:1px solid #e2e8f0;";
-  const thStyle = "padding:6px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:600;text-align:left;";
+  const tdStyle = "padding:6px 12px;border:1px solid #e2e8f0;font-weight:normal;";
+  const thStyle = "padding:6px 12px;border:1px solid #e2e8f0;background:#f8fafc;font-weight:bold;text-align:left;";
   const numStyle = `${tdStyle}text-align:right;`;
   const numThStyle = `${thStyle}text-align:right;`;
 
@@ -123,10 +123,10 @@ function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Perso
   }).join("\n");
 
   const footerRow = `<tr>
-    <td style="${tdStyle}font-weight:700;">TOTAL ${nombre.toUpperCase()}</td>
+    <td style="${tdStyle}font-weight:bold;">TOTAL ${nombre.toUpperCase()}</td>
     <td style="${tdStyle}"></td>
-    <td style="${numStyle}font-weight:600;">${plainCLP(totalOriginal)}</td>
-    <td style="${numStyle}font-weight:700;">${plainCLP(total)}</td>
+    <td style="${numStyle}font-weight:bold;">${plainCLP(totalOriginal)}</td>
+    <td style="${numStyle}font-weight:bold;">${plainCLP(total)}</td>
     <td style="${tdStyle}"></td>
   </tr>`;
 
