@@ -114,7 +114,7 @@ function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Perso
     const isShared = r.quien_pago === "ambos";
     const catLabel = isShared ? `${r.categoria} (${Math.round(pct * 100)}%)` : r.categoria;
     return `<tr>
-      <td style="${tdStyle}">${catLabel}</td>
+      <td style="${tdStyle}font-weight:bold;">${catLabel}</td>
       <td style="${tdStyle}">${r.descripcion ?? ""}</td>
       <td style="${numStyle}">${plainCLP(r.valor_original)}</td>
       <td style="${numStyle}">${plainCLP(r.valor_persona)}</td>
