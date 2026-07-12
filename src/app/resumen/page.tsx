@@ -132,8 +132,8 @@ function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Perso
   return `<h3 style="font-family:sans-serif;margin-bottom:8px;">Resumen ${MESES[month - 1]} ${year} — ${nombre}</h3>
 <table style="border-collapse:collapse;font-family:sans-serif;font-size:13px;">
   <thead>${headerRow}</thead>
-  <tbody>${bodyRows}</tbody>
-  <tfoot>${footerRow}</tfoot>
+  <tbody>${bodyRows}
+${footerRow}</tbody>
 </table>`;
 }
 
