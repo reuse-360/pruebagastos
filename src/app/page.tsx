@@ -50,6 +50,11 @@ export default function Home() {
   const current = sugerencias[idx] ?? null;
   const currentParsed = current ? parsearTextoSugerencia(current.texto_original) : null;
   const currentFecha = currentParsed?.fechaTransferencia ?? current?.fecha ?? null;
+  // Para push de compras (no transferencias), el comercio capturado sirve como descripción sugerida
+  const comercioComoDescripcion =
+    !currentParsed?.origen && !currentParsed?.destino && current?.comercio !== "⚠ sin parsear"
+      ? current?.comercio ?? ""
+      : "";
   const total = sugerencias.length;
   const hayMas = idx < total - 1;
 
@@ -122,7 +127,7 @@ export default function Home() {
         onSkip={current ? handleIgnorar : undefined}
         preload={current ? {
           amount: String(current.monto),
-          description: currentParsed?.comentario ?? "",
+          description: currentParsed?.comentario ?? comercioComoDescripcion,
           date: currentFecha ?? todayISO(),
         } : undefined}
       />
