@@ -123,7 +123,8 @@ function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Perso
   }).join("\n");
 
   const footerRow = `<tr>
-    <td colspan="2" style="${tdStyle}font-weight:700;">TOTAL ${nombre.toUpperCase()}</td>
+    <td style="${tdStyle}font-weight:700;">TOTAL ${nombre.toUpperCase()}</td>
+    <td style="${tdStyle}"></td>
     <td style="${numStyle}font-weight:600;">${plainCLP(totalOriginal)}</td>
     <td style="${numStyle}font-weight:700;">${plainCLP(total)}</td>
     <td style="${tdStyle}"></td>
