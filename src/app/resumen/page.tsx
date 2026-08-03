@@ -138,6 +138,49 @@ ${footerRow}</tbody>
 </table>`;
 }
 
+// Escribe HTML+texto al portapapeles vía el mecanismo legacy de execCommand,
+// que en apps nativas mobile (Gmail app en Android/iOS) preserva la tabla de
+// forma más confiable que navigator.clipboard.write: la Clipboard API async
+// con múltiples tipos MIME tiene soporte inconsistente para text/html en
+// Chrome Android y WebViews, mientras que execCommand pasa por el camino de
+// copiado nativo del navegador que esas apps sí interpretan.
+function copyRichTextLegacy(html: string, text: string): boolean {
+  if (typeof document.execCommand !== "function") return false;
+
+  const container = document.createElement("div");
+  container.setAttribute("contenteditable", "true");
+  container.style.position = "fixed";
+  container.style.left = "-9999px";
+  container.style.top = "0";
+  container.innerHTML = html;
+  document.body.appendChild(container);
+
+  const range = document.createRange();
+  range.selectNodeContents(container);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+
+  function onCopy(e: ClipboardEvent) {
+    e.clipboardData?.setData("text/html", html);
+    e.clipboardData?.setData("text/plain", text);
+    e.preventDefault();
+  }
+
+  document.addEventListener("copy", onCopy);
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  } finally {
+    document.removeEventListener("copy", onCopy);
+    selection?.removeAllRanges();
+    document.body.removeChild(container);
+  }
+  return ok;
+}
+
 function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
   const isPau = person === "pau";
   const accentClass = isPau ? "text-amber-600" : "text-indigo-600";
@@ -233,16 +276,20 @@ export default function ResumenPage() {
   async function handleCopy() {
     const text = buildCopyText(month, year, rows, person);
     const html = buildCopyHtml(month, year, rows, person);
-    try {
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          "text/html": new Blob([html], { type: "text/html" }),
-          "text/plain": new Blob([text], { type: "text/plain" }),
-        }),
-      ]);
-    } catch {
-      await navigator.clipboard.writeText(text);
+
+    if (!copyRichTextLegacy(html, text)) {
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([text], { type: "text/plain" }),
+          }),
+        ]);
+      } catch {
+        await navigator.clipboard.writeText(text);
+      }
     }
+
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

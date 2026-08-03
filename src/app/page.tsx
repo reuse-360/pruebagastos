@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { TransactionForm } from "@/components/TransactionForm";
 import { fetchSugerenciasPendientes, marcarSugerencia, parsearTextoSugerencia, type Sugerencia } from "@/lib/queries";
 import { formatCLP } from "@/lib/constants";
@@ -19,7 +19,16 @@ function formatFecha(iso: string): string {
 export default function Home() {
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [idx, setIdx] = useState(0);
+  const [revisados, setRevisados] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Swipe horizontal: la card sigue el dedo mientras se arrastra y, al
+  // soltar, o vuelve a su lugar o termina de salir de pantalla y cambia idx.
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [animating, setAnimating] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function init() {
@@ -47,7 +56,9 @@ export default function Home() {
     init();
   }, []);
 
+  const total = sugerencias.length;
   const current = sugerencias[idx] ?? null;
+  const atManualSlide = idx >= total;
   const currentParsed = current ? parsearTextoSugerencia(current.texto_original) : null;
   const currentFecha = currentParsed?.fechaTransferencia ?? current?.fecha ?? null;
   // Para push de compras (no transferencias), el comercio capturado sirve como descripción sugerida
@@ -55,82 +66,146 @@ export default function Home() {
     !currentParsed?.origen && !currentParsed?.destino && current?.comercio !== "⚠ sin parsear"
       ? current?.comercio ?? ""
       : "";
-  const total = sugerencias.length;
-  const hayMas = idx < total - 1;
+
+  function removeFromQueue(id: string) {
+    setSugerencias((prev) => prev.filter((s) => s.id !== id));
+    setRevisados((n) => n + 1);
+  }
 
   async function handleSaved() {
-    if (current) await marcarSugerencia(current.id, "guardado");
-    avanzar();
+    if (!current) return;
+    await marcarSugerencia(current.id, "guardado");
+    removeFromQueue(current.id);
   }
 
   async function handleIgnorar() {
-    if (current) await marcarSugerencia(current.id, "ignorado");
-    avanzar();
+    if (!current) return;
+    await marcarSugerencia(current.id, "ignorado");
+    removeFromQueue(current.id);
   }
 
-  function avanzar() {
-    if (hayMas) setIdx((i) => i + 1);
-    else setIdx(total); // termina el flujo
+  function onTouchStart(e: React.TouchEvent) {
+    if (animating) return;
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+    setDragging(true);
   }
 
-  const terminado = !loading && (!current);
+  function onTouchMove(e: React.TouchEvent) {
+    if (!touchStartRef.current) return;
+    const t = e.touches[0];
+    const dx = t.clientX - touchStartRef.current.x;
+    const dy = t.clientY - touchStartRef.current.y;
+    if (Math.abs(dy) > Math.abs(dx)) return; // gesto vertical: dejar scrollear
+    setDragX(dx);
+  }
+
+  function onTouchEnd() {
+    if (!touchStartRef.current) return;
+    touchStartRef.current = null;
+    setDragging(false);
+
+    const width = containerRef.current?.offsetWidth ?? 320;
+    const threshold = Math.min(90, width * 0.25);
+    const canNext = idx < total; // total = último real; total en sí es el slide de ingreso manual
+    const canPrev = idx > 0;
+
+    if (dragX <= -threshold && canNext) {
+      setAnimating(true);
+      setDragX(-width);
+      setTimeout(() => {
+        setIdx((i) => i + 1);
+        setDragX(0);
+        setAnimating(false);
+      }, 200);
+    } else if (dragX >= threshold && canPrev) {
+      setAnimating(true);
+      setDragX(width);
+      setTimeout(() => {
+        setIdx((i) => i - 1);
+        setDragX(0);
+        setAnimating(false);
+      }, 200);
+    } else {
+      setDragX(0);
+    }
+  }
 
   return (
     <main className="container mx-auto max-w-lg px-4 py-8 space-y-4">
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Agregar gasto</h1>
+        <h1 className="text-xl font-bold">{atManualSlide ? "Nuevo gasto" : "Agregar gasto"}</h1>
         {loading && <span className="text-xs text-muted-foreground animate-pulse">Revisando…</span>}
       </div>
 
-      {/* Banner de sugerencias */}
-      {!loading && total > 0 && !terminado && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 space-y-1">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-primary uppercase tracking-wide">
-              {total - idx} {total - idx === 1 ? "pendiente" : "pendientes"}
+      <div
+        ref={containerRef}
+        className="touch-pan-y space-y-4"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{
+          transform: `translateX(${dragX}px)`,
+          transition: dragging ? "none" : "transform 200ms ease",
+          opacity: animating ? 0.4 : 1,
+        }}
+      >
+        {/* Banner de sugerencias */}
+        {!loading && total > 0 && !atManualSlide && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+                {total} {total === 1 ? "pendiente" : "pendientes"}
+              </p>
+              <span className="text-xs text-muted-foreground">{idx + 1}/{total}</span>
+            </div>
+            <p className="text-base font-semibold">
+              {formatCLP(current!.monto)}
+              {currentFecha && (
+                <span className="text-sm font-normal text-muted-foreground"> · {formatFecha(currentFecha)}</span>
+              )}
             </p>
-            <span className="text-xs text-muted-foreground">{idx + 1}/{total}</span>
-          </div>
-          <p className="text-base font-semibold">
-            {formatCLP(current!.monto)}
-            {currentFecha && (
-              <span className="text-sm font-normal text-muted-foreground"> · {formatFecha(currentFecha)}</span>
+            {!currentParsed?.origen && !currentParsed?.destino && current!.comercio && (
+              <p className="text-sm font-medium">{current!.comercio}</p>
             )}
-          </p>
-          {!currentParsed?.origen && !currentParsed?.destino && current!.comercio && (
-            <p className="text-sm font-medium">{current!.comercio}</p>
-          )}
-          {currentParsed?.origen && (
-            <p className="text-xs text-muted-foreground">De: <span className="font-medium text-foreground">{currentParsed.origen}</span></p>
-          )}
-          {currentParsed?.destino && (
-            <p className="text-xs text-muted-foreground">Para: <span className="font-medium text-foreground">{currentParsed.destino}</span></p>
-          )}
-          {currentParsed?.comentario && (
-            <p className="text-xs text-muted-foreground italic">&ldquo;{currentParsed.comentario}&rdquo;</p>
-          )}
-        </div>
-      )}
+            {currentParsed?.origen && (
+              <p className="text-xs text-muted-foreground">De: <span className="font-medium text-foreground">{currentParsed.origen}</span></p>
+            )}
+            {currentParsed?.destino && (
+              <p className="text-xs text-muted-foreground">Para: <span className="font-medium text-foreground">{currentParsed.destino}</span></p>
+            )}
+            {currentParsed?.comentario && (
+              <p className="text-xs text-muted-foreground italic">&ldquo;{currentParsed.comentario}&rdquo;</p>
+            )}
+          </div>
+        )}
 
-      {terminado && total > 0 && (
-        <div className="rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3">
-          <p className="text-sm font-semibold text-green-700 dark:text-green-400">
-            ¡Todo al día! Revisaste {total} {total === 1 ? "gasto" : "gastos"}.
-          </p>
-        </div>
-      )}
+        {!loading && atManualSlide && total === 0 && revisados > 0 && (
+          <div className="rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3">
+            <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+              ¡Todo al día! Revisaste {revisados} {revisados === 1 ? "gasto" : "gastos"}.
+            </p>
+          </div>
+        )}
 
-      <TransactionForm
-        key={current?.id ?? "manual"}
-        onSaved={handleSaved}
-        onSkip={current ? handleIgnorar : undefined}
-        preload={current ? {
-          amount: String(current.monto),
-          description: currentParsed?.comentario ?? comercioComoDescripcion,
-          date: currentFecha ?? todayISO(),
-        } : undefined}
-      />
+        <TransactionForm
+          key={current?.id ?? "manual"}
+          onSaved={handleSaved}
+          onSkip={current ? handleIgnorar : undefined}
+          preload={current ? {
+            amount: String(current.monto),
+            description: currentParsed?.comentario ?? comercioComoDescripcion,
+            date: currentFecha ?? todayISO(),
+          } : undefined}
+        />
+
+        {!loading && total > 0 && (
+          <p className="text-center text-xs text-muted-foreground">
+            {atManualSlide ? "Desliza a la derecha → para volver a los pendientes" : "Desliza ← → para ver otro pendiente"}
+          </p>
+        )}
+      </div>
     </main>
   );
 }
