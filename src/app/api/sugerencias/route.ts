@@ -23,6 +23,15 @@ async function getUsdToCLP(): Promise<number> {
   return 950;
 }
 
+// Distingue una notificación de transacción (compra/pago/transferencia) que el
+// parser no logró leer, de una de marketing/promoción/alerta sin movimiento de
+// dinero real (ej. "Súmate al Bingo Santander"). Solo las primeras se guardan
+// como sugerencia "sin parsear" para iterar el parser; el resto se descarta.
+function pareceTransaccion(texto: string): boolean {
+  return /transacci[oó]n|compra|\bpago\b|transferencia|dep[oó]sito|abono|cargo|retiro|giro/i.test(texto)
+    || /\$\s*[\d.,]{2,}/.test(texto);
+}
+
 // Formato CLP: "Transacción por $ 10.000. se realizó una compra/pago con tu Tarjeta ****XXXX en COMERCIO, el DD-MM-YYYY a las HH:MM:SS"
 // Formato USD: "Transacción por USD 10,99. se realizó un pago con tu Tarjeta ****XXXX en COMERCIO el DD-MM-YYYY a las HH:MM:SS"
 function parsearNotificacion(textoRaw: string): { comercio: string; montoUsd: number | null; montoCLP: number; fecha?: string } | null {
@@ -77,13 +86,19 @@ export async function POST(request: NextRequest) {
 
   const parsed = parsearNotificacion(texto);
   if (!parsed) {
-    // Guardar igualmente para poder revisar el formato y arreglar el parser
-    await supabase.from("sugerencias").insert({
-      comercio: "⚠ sin parsear",
-      monto: 0,
-      texto_original: texto,
-    });
-    return NextResponse.json({ error: "No se pudo parsear la notificación", texto }, { status: 422 });
+    const esTransaccion = pareceTransaccion(texto);
+    if (esTransaccion) {
+      // Guardar igualmente para poder revisar el formato y arreglar el parser
+      await supabase.from("sugerencias").insert({
+        comercio: "⚠ sin parsear",
+        monto: 0,
+        texto_original: texto,
+      });
+    }
+    return NextResponse.json(
+      { error: "No se pudo parsear la notificación", texto, guardado: esTransaccion },
+      { status: 422 }
+    );
   }
 
   let montoCLP = parsed.montoCLP;
