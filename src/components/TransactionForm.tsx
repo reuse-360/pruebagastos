@@ -7,8 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCLP, SPLIT_GON, SPLIT_PAU } from "@/lib/constants";
-
-type QuienPago = "gon" | "pau" | "ambos";
+import { insertarGasto, actualizarGasto, type QuienPago } from "@/lib/queries";
 
 const QUIEN_OPTIONS: { value: QuienPago; label: string }[] = [
   { value: "gon", label: "Gon" },
@@ -24,28 +23,41 @@ function todayISO() {
 const nativeSelectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
+export interface GastoEditable {
+  id: string;
+  grupo_id: string | null;
+  viewPerson: "gon" | "pau";
+  fecha: string;
+  quien_pago: QuienPago;
+  categoria: string;
+  descripcion: string | null;
+  valor_original: number;
+}
+
 interface TransactionFormProps {
   onSaved?: () => void;
   onSkip?: () => void;
+  onCancel?: () => void;
   preload?: {
     amount: string;
     description: string;
     date: string;
   };
+  editing?: GastoEditable;
 }
 
-export function TransactionForm({ onSaved, onSkip, preload }: TransactionFormProps) {
+export function TransactionForm({ onSaved, onSkip, onCancel, preload, editing }: TransactionFormProps) {
   const [categories, setCategories] = useState<string[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const [amount, setAmount] = useState(preload?.amount ?? "");
-  const [categoria, setCategoria] = useState("");
-  const [date, setDate] = useState(preload?.date ?? todayISO());
-  const [quienPago, setQuienPago] = useState<QuienPago | "">("");
-  const [description, setDescription] = useState(preload?.description ?? "");
+  const [amount, setAmount] = useState(editing ? String(editing.valor_original) : preload?.amount ?? "");
+  const [categoria, setCategoria] = useState(editing?.categoria ?? "");
+  const [date, setDate] = useState(editing?.fecha ?? preload?.date ?? todayISO());
+  const [quienPago, setQuienPago] = useState<QuienPago | "">(editing?.quien_pago ?? "");
+  const [description, setDescription] = useState(editing?.descripcion ?? preload?.description ?? "");
 
   // sincroniza si cambia el preload (siguiente sugerencia)
   useEffect(() => {
@@ -80,49 +92,41 @@ export function TransactionForm({ onSaved, onSkip, preload }: TransactionFormPro
     setError(null);
     setSubmitting(true);
 
-    const base = {
+    const input = {
       fecha: date,
-      quien_pago: quienPago,
+      quienPago,
       categoria,
       descripcion: description.trim() || null,
-      valor_original: numericAmount,
+      valorOriginal: numericAmount,
     };
 
-    const errs: string[] = [];
-
-    if (quienPago === "gon" || quienPago === "ambos") {
-      const valor_gon = quienPago === "ambos" ? numericAmount * SPLIT_GON : numericAmount;
-      const { error: err } = await supabase.from("gastos_gon").insert([{ ...base, valor_gon }]);
-      if (err) errs.push(err.message);
-    }
-
-    if (quienPago === "pau" || quienPago === "ambos") {
-      const valor_pau = quienPago === "ambos" ? numericAmount * SPLIT_PAU : numericAmount;
-      const { error: err } = await supabase.from("gastos_pau").insert([{ ...base, valor_pau }]);
-      if (err) errs.push(err.message);
-    }
+    const { error: err } = editing
+      ? await actualizarGasto(editing.viewPerson, editing, input)
+      : await insertarGasto(input);
 
     setSubmitting(false);
 
-    if (errs.length > 0) {
-      setError(errs.join(" / "));
+    if (err) {
+      setError(err);
       return;
     }
 
     setSaved(true);
-    setAmount("");
-    setCategoria("");
-    setDate(todayISO());
-    setQuienPago("");
-    setDescription("");
-    setTimeout(() => setSaved(false), 3000);
+    if (!editing) {
+      setAmount("");
+      setCategoria("");
+      setDate(todayISO());
+      setQuienPago("");
+      setDescription("");
+    }
+    setTimeout(() => setSaved(false), editing ? 1000 : 3000);
     onSaved?.();
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Nuevo gasto</CardTitle>
+        <CardTitle>{editing ? "Editar gasto" : "Nuevo gasto"}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -217,13 +221,22 @@ export function TransactionForm({ onSaved, onSkip, preload }: TransactionFormPro
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-          {saved && <p className="text-sm text-green-600">Gasto guardado correctamente.</p>}
+          {saved && (
+            <p className="text-sm text-green-600">
+              {editing ? "Cambios guardados." : "Gasto guardado correctamente."}
+            </p>
+          )}
 
           <div className="flex gap-2">
             <Button type="submit" className="flex-1" disabled={submitting || !quienPago || !categoria || !amount}>
-              {submitting ? "Guardando…" : "Guardar gasto"}
+              {submitting ? "Guardando…" : editing ? "Guardar cambios" : "Guardar gasto"}
             </Button>
-            {onSkip && (
+            {editing && onCancel && (
+              <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+                Cancelar
+              </Button>
+            )}
+            {!editing && onSkip && (
               <Button type="button" variant="outline" onClick={onSkip} disabled={submitting}>
                 Ignorar
               </Button>

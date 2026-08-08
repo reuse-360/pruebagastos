@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { SPLIT_GON, SPLIT_PAU } from "./constants";
 
 export interface Sugerencia {
   id: string;
@@ -92,12 +93,89 @@ export function parsearTextoSugerencia(texto: string | null): {
 
 // Fila unificada para la vista de resumen (Gon o Pau)
 export interface TxRow {
+  id: string;
+  grupo_id: string | null;
   fecha: string;
   quien_pago: string;
   categoria: string;
   descripcion: string | null;
   valor_original: number;
   valor_persona: number; // valor_gon o valor_pau según la tabla
+}
+
+export type QuienPago = "gon" | "pau" | "ambos";
+
+export interface GastoInput {
+  fecha: string;
+  quienPago: QuienPago;
+  categoria: string;
+  descripcion: string | null;
+  valorOriginal: number;
+}
+
+// Un gasto "ambos" vive como dos filas independientes (una en gastos_gon,
+// otra en gastos_pau) unidas por grupo_id. Filas creadas antes de que
+// existiera esa columna tienen grupo_id null y no se pueden vincular.
+export async function insertarGasto(input: GastoInput): Promise<{ error: string | null }> {
+  const base = {
+    fecha: input.fecha,
+    quien_pago: input.quienPago,
+    categoria: input.categoria,
+    descripcion: input.descripcion,
+    valor_original: input.valorOriginal,
+  };
+  const grupo_id = input.quienPago === "ambos" ? crypto.randomUUID() : null;
+  const errs: string[] = [];
+
+  if (input.quienPago === "gon" || input.quienPago === "ambos") {
+    const valor_gon = input.quienPago === "ambos" ? input.valorOriginal * SPLIT_GON : input.valorOriginal;
+    const { error } = await supabase.from("gastos_gon").insert([{ ...base, valor_gon, grupo_id }]);
+    if (error) errs.push(error.message);
+  }
+  if (input.quienPago === "pau" || input.quienPago === "ambos") {
+    const valor_pau = input.quienPago === "ambos" ? input.valorOriginal * SPLIT_PAU : input.valorOriginal;
+    const { error } = await supabase.from("gastos_pau").insert([{ ...base, valor_pau, grupo_id }]);
+    if (error) errs.push(error.message);
+  }
+
+  return { error: errs.length > 0 ? errs.join(" / ") : null };
+}
+
+// Borra la(s) fila(s) de un gasto existente: si tiene grupo_id, borra ambos
+// lados; si no (fila anterior a esta migración, o gasto no compartido),
+// borra solo la fila de la tabla desde la que se está viendo.
+async function borrarFilasGasto(viewPerson: "gon" | "pau", row: { id: string; grupo_id: string | null }) {
+  if (row.grupo_id) {
+    await Promise.all([
+      supabase.from("gastos_gon").delete().eq("grupo_id", row.grupo_id),
+      supabase.from("gastos_pau").delete().eq("grupo_id", row.grupo_id),
+    ]);
+  } else {
+    await supabase.from(viewPerson === "gon" ? "gastos_gon" : "gastos_pau").delete().eq("id", row.id);
+  }
+}
+
+export async function eliminarGasto(
+  viewPerson: "gon" | "pau",
+  row: { id: string; grupo_id: string | null }
+): Promise<{ error: string | null }> {
+  await borrarFilasGasto(viewPerson, row);
+  return { error: null };
+}
+
+// Edita un gasto existente. Para evitar reconciliar a mano cada combinación
+// de cambios (ej. pasar de "ambos" a "gon" cambia cuántas filas debe haber),
+// simplemente inserta las filas nuevas primero y solo si eso funciona borra
+// las viejas — así un error a mitad de camino nunca pierde datos.
+export async function actualizarGasto(
+  viewPerson: "gon" | "pau",
+  original: { id: string; grupo_id: string | null },
+  nuevo: GastoInput
+): Promise<{ error: string | null }> {
+  const { error } = await insertarGasto(nuevo);
+  if (error) return { error };
+  await borrarFilasGasto(viewPerson, original);
+  return { error: null };
 }
 
 // Categoría agregada para el dashboard
@@ -118,7 +196,7 @@ export async function fetchGastosGon(year: number, month: number): Promise<{ row
   const { firstDay, lastDay } = dateRange(year, month);
   const { data, error } = await supabase
     .from("gastos_gon")
-    .select("fecha, quien_pago, categoria, descripcion, valor_original, valor_gon")
+    .select("id, grupo_id, fecha, quien_pago, categoria, descripcion, valor_original, valor_gon")
     .gte("fecha", firstDay)
     .lte("fecha", lastDay)
     .order("fecha", { ascending: true });
@@ -126,9 +204,11 @@ export async function fetchGastosGon(year: number, month: number): Promise<{ row
   if (error || !data) return { rows: [], error };
 
   const rows: TxRow[] = (data as Array<{
-    fecha: string; quien_pago: string; categoria: string;
+    id: string; grupo_id: string | null; fecha: string; quien_pago: string; categoria: string;
     descripcion: string | null; valor_original: number; valor_gon: number;
   }>).map((r) => ({
+    id: r.id,
+    grupo_id: r.grupo_id,
     fecha: r.fecha,
     quien_pago: r.quien_pago,
     categoria: r.categoria,
@@ -144,7 +224,7 @@ export async function fetchGastosPau(year: number, month: number): Promise<{ row
   const { firstDay, lastDay } = dateRange(year, month);
   const { data, error } = await supabase
     .from("gastos_pau")
-    .select("fecha, quien_pago, categoria, descripcion, valor_original, valor_pau")
+    .select("id, grupo_id, fecha, quien_pago, categoria, descripcion, valor_original, valor_pau")
     .gte("fecha", firstDay)
     .lte("fecha", lastDay)
     .order("fecha", { ascending: true });
@@ -152,9 +232,11 @@ export async function fetchGastosPau(year: number, month: number): Promise<{ row
   if (error || !data) return { rows: [], error };
 
   const rows: TxRow[] = (data as Array<{
-    fecha: string; quien_pago: string; categoria: string;
+    id: string; grupo_id: string | null; fecha: string; quien_pago: string; categoria: string;
     descripcion: string | null; valor_original: number; valor_pau: number;
   }>).map((r) => ({
+    id: r.id,
+    grupo_id: r.grupo_id,
     fecha: r.fecha,
     quien_pago: r.quien_pago,
     categoria: r.categoria,

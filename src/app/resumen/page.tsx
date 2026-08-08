@@ -3,8 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { fetchGastosGon, fetchGastosPau, type TxRow } from "@/lib/queries";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { TransactionForm, type GastoEditable } from "@/components/TransactionForm";
+import { fetchGastosGon, fetchGastosPau, eliminarGasto, type TxRow, type QuienPago } from "@/lib/queries";
 import { formatCLP, SPLIT_GON, SPLIT_PAU, MESES } from "@/lib/constants";
+import { Pencil, Trash2 } from "lucide-react";
 
 type Person = "gon" | "pau";
 
@@ -181,7 +184,11 @@ function copyRichTextLegacy(html: string, text: string): boolean {
   return ok;
 }
 
-function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
+function TxTable({
+  rows, person, onEdit, onDelete,
+}: {
+  rows: TxRow[]; person: Person; onEdit: (row: TxRow) => void; onDelete: (row: TxRow) => void;
+}) {
   const isPau = person === "pau";
   const accentClass = isPau ? "text-amber-600" : "text-indigo-600";
   const shareLabel = isPau ? "Total Pau" : "Total Gon";
@@ -203,11 +210,11 @@ function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
                 <th className="text-right px-3 py-2 font-medium">Valor original</th>
                 <th className={`text-right px-3 py-2 font-medium ${accentClass}`}>{shareLabel}</th>
                 <th className="text-right px-3 py-2 font-medium">Fecha</th>
+                <th className="px-3 py-2 font-medium"><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r, i) => {
-                const isShared = r.quien_pago === "ambos";
                 return (
                   <tr key={i} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-3 py-2 font-medium whitespace-nowrap">{r.categoria}</td>
@@ -220,6 +227,26 @@ function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
                     </td>
                     <td className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap">
                       {formatDate(r.fecha)}
+                    </td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          aria-label="Editar gasto"
+                          onClick={() => onEdit(r)}
+                          className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Eliminar gasto"
+                          onClick={() => onDelete(r)}
+                          className="p-1.5 rounded-md text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -234,6 +261,7 @@ function TxTable({ rows, person }: { rows: TxRow[]; person: Person }) {
                 <td className={`px-3 py-2 text-right whitespace-nowrap font-bold ${accentClass}`}>
                   {formatCLP(total)}
                 </td>
+                <td />
                 <td />
               </tr>
             </tfoot>
@@ -253,6 +281,7 @@ export default function ResumenPage() {
   const [pauRows, setPauRows] = useState<TxRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [editingRow, setEditingRow] = useState<TxRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -294,6 +323,36 @@ export default function ResumenPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function handleDelete(row: TxRow) {
+    const otro = isPau ? "Gon" : "Pau";
+    const msg = row.quien_pago === "ambos"
+      ? `¿Eliminar este gasto compartido? También se borrará del lado de ${otro}.`
+      : "¿Eliminar este gasto?";
+    if (!window.confirm(msg)) return;
+    await eliminarGasto(person, row);
+    await load();
+  }
+
+  function handleEdit(row: TxRow) {
+    setEditingRow(row);
+  }
+
+  async function handleEditSaved() {
+    setEditingRow(null);
+    await load();
+  }
+
+  const editable: GastoEditable | null = editingRow ? {
+    id: editingRow.id,
+    grupo_id: editingRow.grupo_id,
+    viewPerson: person,
+    fecha: editingRow.fecha,
+    quien_pago: editingRow.quien_pago as QuienPago,
+    categoria: editingRow.categoria,
+    descripcion: editingRow.descripcion,
+    valor_original: editingRow.valor_original,
+  } : null;
+
   return (
     <main className="container mx-auto max-w-lg px-4 py-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -331,7 +390,9 @@ export default function ResumenPage() {
         </Card>
       </div>
 
-      {!loading && rows.length > 0 && <TxTable rows={rows} person={person} />}
+      {!loading && rows.length > 0 && (
+        <TxTable rows={rows} person={person} onEdit={handleEdit} onDelete={handleDelete} />
+      )}
 
       {!loading && rows.length === 0 && (
         <p className="text-center text-muted-foreground py-8">Sin transacciones este mes.</p>
@@ -342,6 +403,18 @@ export default function ResumenPage() {
           {copied ? "¡Copiado!" : `Copiar resumen de ${isPau ? "Pau" : "Gon"}`}
         </Button>
       )}
+
+      <Dialog open={!!editable} onOpenChange={(open) => { if (!open) setEditingRow(null); }}>
+        <DialogContent className="sm:max-w-md">
+          {editable && (
+            <TransactionForm
+              editing={editable}
+              onSaved={handleEditSaved}
+              onCancel={() => setEditingRow(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
