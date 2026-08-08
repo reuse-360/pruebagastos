@@ -354,7 +354,7 @@ export default function ResumenPage() {
   } : null;
 
   return (
-    <main className="container mx-auto max-w-lg px-4 py-6 space-y-4">
+    <main className="container mx-auto max-w-4xl px-4 py-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold">Resumen mensual</h1>
         <MonthSelector year={year} month={month} onChange={(y, m) => { setYear(y); setMonth(m); }} />
