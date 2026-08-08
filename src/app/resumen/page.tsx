@@ -86,13 +86,6 @@ function buildCopyText(month: number, year: number, rows: TxRow[], person: Perso
   return lines.join("\n");
 }
 
-// Sin separador de miles: Google Sheets a veces está en configuración regional
-// donde el punto es separador decimal, y "$110.000" (formato chileno) se
-// reinterpreta como $110.00, perdiendo los "0". Un número plano evita la ambigüedad.
-function plainCLP(amount: number): string {
-  return `$${Math.round(amount)}`;
-}
-
 function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Person): string {
   const nombre = person === "gon" ? "Gon" : "Pau";
   const pct = person === "gon" ? SPLIT_GON : SPLIT_PAU;
@@ -119,8 +112,8 @@ function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Perso
     return `<tr>
       <td style="${tdStyle}font-weight:bold;">${catLabel}</td>
       <td style="${tdStyle}">${r.descripcion ?? ""}</td>
-      <td style="${numStyle}">${plainCLP(r.valor_original)}</td>
-      <td style="${numStyle}">${plainCLP(r.valor_persona)}</td>
+      <td style="${numStyle}">${formatCLP(r.valor_original)}</td>
+      <td style="${numStyle}">${formatCLP(r.valor_persona)}</td>
       <td style="${numStyle}">${formatDate(r.fecha)}</td>
     </tr>`;
   }).join("\n");
@@ -128,8 +121,8 @@ function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Perso
   const footerRow = `<tr>
     <td style="${tdStyle}font-weight:bold;">TOTAL ${nombre.toUpperCase()}</td>
     <td style="${tdStyle}"></td>
-    <td style="${numStyle}font-weight:bold;">${plainCLP(totalOriginal)}</td>
-    <td style="${numStyle}font-weight:bold;">${plainCLP(total)}</td>
+    <td style="${numStyle}font-weight:bold;">${formatCLP(totalOriginal)}</td>
+    <td style="${numStyle}font-weight:bold;">${formatCLP(total)}</td>
     <td style="${tdStyle}"></td>
   </tr>`;
 
