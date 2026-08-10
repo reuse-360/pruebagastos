@@ -7,7 +7,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { TransactionForm, type GastoEditable } from "@/components/TransactionForm";
 import { fetchGastosGon, fetchGastosPau, eliminarGasto, type TxRow, type QuienPago } from "@/lib/queries";
 import { formatCLP, SPLIT_GON, SPLIT_PAU, MESES } from "@/lib/constants";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, ChevronDown } from "lucide-react";
 
 type Person = "gon" | "pau";
 
@@ -185,8 +185,13 @@ function TxTable({
   const isPau = person === "pau";
   const accentClass = isPau ? "text-amber-600" : "text-indigo-600";
   const shareLabel = isPau ? "Total Pau" : "Total Gon";
-  const total = rows.reduce((s, r) => s + r.valor_persona, 0);
-  const valorOriginalTotal = rows.reduce((s, r) => s + r.valor_original, 0);
+
+  const [categoriaFiltro, setCategoriaFiltro] = useState("");
+  const categorias = Array.from(new Set(rows.map((r) => r.categoria))).sort();
+  const filteredRows = categoriaFiltro ? rows.filter((r) => r.categoria === categoriaFiltro) : rows;
+
+  const total = filteredRows.reduce((s, r) => s + r.valor_persona, 0);
+  const valorOriginalTotal = filteredRows.reduce((s, r) => s + r.valor_original, 0);
 
   return (
     <Card>
@@ -198,7 +203,25 @@ function TxTable({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-muted-foreground text-xs">
-                <th className="text-left px-3 py-2 font-medium">Categoría</th>
+                <th className="text-left px-3 py-2 font-medium">
+                  <div className="relative inline-flex items-center gap-0.5 cursor-pointer select-none">
+                    <span className={categoriaFiltro ? "text-primary" : ""}>
+                      {categoriaFiltro || "Categoría"}
+                    </span>
+                    <ChevronDown className="h-3 w-3" />
+                    <select
+                      value={categoriaFiltro}
+                      onChange={(e) => setCategoriaFiltro(e.target.value)}
+                      aria-label="Filtrar por categoría"
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    >
+                      <option value="">Todas las categorías</option>
+                      {categorias.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </th>
                 <th className="text-left px-3 py-2 font-medium">Descripción</th>
                 <th className="text-right px-3 py-2 font-medium">Valor original</th>
                 <th className={`text-right px-3 py-2 font-medium ${accentClass}`}>{shareLabel}</th>
@@ -207,7 +230,7 @@ function TxTable({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => {
+              {filteredRows.map((r, i) => {
                 return (
                   <tr key={i} className="border-b last:border-0 hover:bg-muted/40">
                     <td className="px-3 py-2 font-medium whitespace-nowrap">{r.categoria}</td>
