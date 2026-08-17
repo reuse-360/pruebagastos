@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
   }
 
   const comercioFinal = parsed.montoUsd !== null
-    ? `${parsed.comercio} (USD ${parsed.montoUsd.toFixed(2)})`
+    ? `${parsed.comercio} (USD $${parsed.montoUsd.toFixed(2)})`
     : parsed.comercio;
 
   const { error } = await supabase.from("sugerencias").insert({

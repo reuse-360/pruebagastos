@@ -258,10 +258,11 @@ export interface AnnualResult {
 }
 
 export async function fetchAnnualData(year: number, person: "gon" | "pau"): Promise<AnnualResult> {
+  const valorField = person === "gon" ? "valor_gon" : "valor_pau";
   const [txResult, catResult] = await Promise.all([
     supabase
       .from(person === "gon" ? "gastos_gon" : "gastos_pau")
-      .select("fecha, categoria, valor_original")
+      .select(`fecha, categoria, ${valorField}`)
       .gte("fecha", `${year}-01-01`)
       .lte("fecha", `${year}-12-31`),
     supabase
@@ -271,7 +272,7 @@ export async function fetchAnnualData(year: number, person: "gon" | "pau"): Prom
       .order("name"),
   ]);
 
-  const txData = (txResult.data ?? []) as Array<{ fecha: string; categoria: string; valor_original: number }>;
+  const txData = (txResult.data ?? []) as Array<{ fecha: string; categoria: string; valor_gon?: number; valor_pau?: number }>;
   const categories: string[] = (catResult.data ?? []).map((r: { name: string }) => r.name);
 
   // include categories from transactions not in the master list
@@ -285,7 +286,7 @@ export async function fetchAnnualData(year: number, person: "gon" | "pau"): Prom
 
   for (const r of txData) {
     const m = parseInt(r.fecha.split("-")[1]) - 1;
-    monthly[r.categoria][m] += r.valor_original;
+    monthly[r.categoria][m] += (person === "gon" ? r.valor_gon : r.valor_pau) ?? 0;
   }
 
   const monthTotals = Array.from({ length: 12 }, (_, m) =>

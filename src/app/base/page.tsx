@@ -53,7 +53,7 @@ function PushTester() {
       if (res.ok) {
         const fechaISO = data.fecha as string | undefined;
         const fechaFmt = fechaISO ? fechaISO.split("-").reverse().join("/") : "sin fecha";
-        setResult({ ok: true, msg: `✓ Comercio: ${data.comercio} | Monto: $${(data.monto as number).toLocaleString("es-CL")} | Fecha: ${fechaFmt}` });
+        setResult({ ok: true, msg: `✓ Comercio: ${data.comercio} | Monto: ${formatCLP(data.monto as number)} | Fecha: ${fechaFmt}` });
       } else {
         setResult({ ok: false, msg: `Error ${res.status}: ${data.error ?? JSON.stringify(data)}` });
       }
