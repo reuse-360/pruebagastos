@@ -67,11 +67,13 @@ function OptInput({ value, onChange }: { value: number; onChange: (v: number) =>
 
   useEffect(() => { setRaw(value > 0 ? String(value) : ""); }, [value]);
 
+  const display = raw ? `$${Number(raw).toLocaleString("es-CL")}` : "";
+
   return (
     <input
       type="text"
       inputMode="numeric"
-      value={raw}
+      value={display}
       onChange={(e) => setRaw(e.target.value.replace(/\D/g, ""))}
       onBlur={() => {
         const num = parseInt(raw) || 0;

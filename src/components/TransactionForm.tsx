@@ -20,6 +20,13 @@ function todayISO() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+// CLP no tiene centavos: el monto se guarda como dígitos puros y solo se
+// formatea (separador de miles + "$") para mostrarlo.
+function toDigits(v: string | number): string {
+  const n = typeof v === "string" ? Number(v) : v;
+  return n > 0 ? String(Math.round(n)) : "";
+}
+
 const nativeSelectClass =
   "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -53,7 +60,7 @@ export function TransactionForm({ onSaved, onSkip, onCancel, preload, editing }:
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  const [amount, setAmount] = useState(editing ? String(editing.valor_original) : preload?.amount ?? "");
+  const [amount, setAmount] = useState(editing ? toDigits(editing.valor_original) : toDigits(preload?.amount ?? ""));
   const [categoria, setCategoria] = useState(editing?.categoria ?? "");
   const [date, setDate] = useState(editing?.fecha ?? preload?.date ?? todayISO());
   const [quienPago, setQuienPago] = useState<QuienPago | "">(editing?.quien_pago ?? "");
@@ -62,7 +69,7 @@ export function TransactionForm({ onSaved, onSkip, onCancel, preload, editing }:
   // sincroniza si cambia el preload (siguiente sugerencia)
   useEffect(() => {
     if (preload) {
-      setAmount(preload.amount);
+      setAmount(toDigits(preload.amount));
       setDescription(preload.description);
       setDate(preload.date);
       setCategoria("");
@@ -82,7 +89,8 @@ export function TransactionForm({ onSaved, onSkip, onCancel, preload, editing }:
       });
   }, []);
 
-  const numericAmount = parseFloat(amount.replace(/\./g, "").replace(",", ".")) || 0;
+  const numericAmount = parseInt(amount, 10) || 0;
+  const amountDisplay = amount ? `$${Number(amount).toLocaleString("es-CL")}` : "";
   const isAmbos = quienPago === "ambos";
 
   async function handleSubmit(e: React.FormEvent) {
@@ -138,8 +146,8 @@ export function TransactionForm({ onSaved, onSkip, onCancel, preload, editing }:
               type="text"
               inputMode="numeric"
               placeholder="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={amountDisplay}
+              onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
               required
             />
           </div>

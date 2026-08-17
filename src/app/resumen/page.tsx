@@ -292,7 +292,7 @@ export default function ResumenPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [person, setPerson] = useState<Person>("pau");
+  const [person, setPerson] = useState<Person>("gon");
   const [gonRows, setGonRows] = useState<TxRow[]>([]);
   const [pauRows, setPauRows] = useState<TxRow[]>([]);
   const [loading, setLoading] = useState(true);
