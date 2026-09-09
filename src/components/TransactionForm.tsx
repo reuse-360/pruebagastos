@@ -236,17 +236,17 @@ export function TransactionForm({ onSaved, onSkip, onCancel, preload, editing }:
           )}
 
           <div className="flex gap-2">
+            {!editing && onSkip && (
+              <Button type="button" variant="outline" onClick={onSkip} disabled={submitting}>
+                Ignorar
+              </Button>
+            )}
             <Button type="submit" className="flex-1" disabled={submitting || !quienPago || !categoria || !amount}>
               {submitting ? "Guardando…" : editing ? "Guardar cambios" : "Guardar gasto"}
             </Button>
             {editing && onCancel && (
               <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
                 Cancelar
-              </Button>
-            )}
-            {!editing && onSkip && (
-              <Button type="button" variant="outline" onClick={onSkip} disabled={submitting}>
-                Ignorar
               </Button>
             )}
           </div>
