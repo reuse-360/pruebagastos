@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { SPLIT_GON, SPLIT_PAU } from "./constants";
+import { getSplit } from "./constants";
 
 export interface Sugerencia {
   id: string;
@@ -128,12 +128,12 @@ export async function insertarGasto(input: GastoInput): Promise<{ error: string 
   const errs: string[] = [];
 
   if (input.quienPago === "gon" || input.quienPago === "ambos") {
-    const valor_gon = input.quienPago === "ambos" ? input.valorOriginal * SPLIT_GON : input.valorOriginal;
+    const valor_gon = input.quienPago === "ambos" ? input.valorOriginal * getSplit(input.fecha).gon : input.valorOriginal;
     const { error } = await supabase.from("gastos_gon").insert([{ ...base, valor_gon, grupo_id }]);
     if (error) errs.push(error.message);
   }
   if (input.quienPago === "pau" || input.quienPago === "ambos") {
-    const valor_pau = input.quienPago === "ambos" ? input.valorOriginal * SPLIT_PAU : input.valorOriginal;
+    const valor_pau = input.quienPago === "ambos" ? input.valorOriginal * getSplit(input.fecha).pau : input.valorOriginal;
     const { error } = await supabase.from("gastos_pau").insert([{ ...base, valor_pau, grupo_id }]);
     if (error) errs.push(error.message);
   }
