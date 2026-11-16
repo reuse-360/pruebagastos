@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { TransactionForm, type GastoEditable } from "@/components/TransactionForm";
 import { fetchGastosGon, fetchGastosPau, eliminarGasto, type TxRow, type QuienPago } from "@/lib/queries";
-import { formatCLP, SPLIT_GON, SPLIT_PAU, MESES } from "@/lib/constants";
+import { formatCLP, getSplit, MESES } from "@/lib/constants";
 import { Pencil, Trash2, ChevronDown } from "lucide-react";
 
 type Person = "gon" | "pau";
@@ -46,7 +46,7 @@ function MonthSelector({
   );
 }
 
-function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person) => void }) {
+function PersonToggle({ value, onChange, split }: { value: Person; onChange: (p: Person) => void; split: { gon: number; pau: number } }) {
   return (
     <div className="flex rounded-md border border-input overflow-hidden text-sm font-medium">
       {(["gon", "pau"] as Person[]).map((p) => (
@@ -60,7 +60,7 @@ function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person
           }`}
         >
           <span className="text-sm font-medium">{p === "gon" ? "Gon" : "Pau"}</span>
-          <span className="text-xs opacity-70">{p === "gon" ? "(64%)" : "(36%)"}</span>
+          <span className="text-xs opacity-70">{`(${Math.round(split[p] * 100)}%)`}</span>
         </button>
       ))}
     </div>
@@ -69,7 +69,7 @@ function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person
 
 function buildCopyText(month: number, year: number, rows: TxRow[], person: Person): string {
   const nombre = person === "gon" ? "Gon" : "Pau";
-  const pct = person === "gon" ? SPLIT_GON : SPLIT_PAU;
+  const pct = getSplit(`${year}-${String(month).padStart(2, "0")}-01`)[person];
   const lines: string[] = [
     `Resumen ${MESES[month - 1]} ${year} — ${nombre}`,
     "──────────────────────────────────────",
@@ -88,7 +88,7 @@ function buildCopyText(month: number, year: number, rows: TxRow[], person: Perso
 
 function buildCopyHtml(month: number, year: number, rows: TxRow[], person: Person): string {
   const nombre = person === "gon" ? "Gon" : "Pau";
-  const pct = person === "gon" ? SPLIT_GON : SPLIT_PAU;
+  const pct = getSplit(`${year}-${String(month).padStart(2, "0")}-01`)[person];
   const shareLabel = person === "gon" ? "Total Gon" : "Total Pau";
   const total = rows.reduce((s, r) => s + r.valor_persona, 0);
   const totalOriginal = rows.reduce((s, r) => s + r.valor_original, 0);
@@ -378,7 +378,7 @@ export default function ResumenPage() {
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">Ver perspectiva de:</span>
-        <PersonToggle value={person} onChange={setPerson} />
+        <PersonToggle value={person} onChange={setPerson} split={getSplit(`${year}-${String(month).padStart(2, "0")}-01`)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
