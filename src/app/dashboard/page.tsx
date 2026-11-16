@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchDashboardData, type CategoryTotal } from "@/lib/queries";
-import { formatCLP, MESES } from "@/lib/constants";
+import { formatCLP, getSplit, MESES } from "@/lib/constants";
 
 type Person = "gon" | "pau";
 
@@ -19,7 +19,7 @@ function prevMonth(year: number, month: number) {
   return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
 }
 
-function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person) => void }) {
+function PersonToggle({ value, onChange, split }: { value: Person; onChange: (p: Person) => void; split: { gon: number; pau: number } }) {
   return (
     <div className="flex rounded-md border border-input overflow-hidden text-sm font-medium">
       {(["gon", "pau"] as Person[]).map((p) => (
@@ -33,7 +33,7 @@ function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person
           }`}
         >
           <span className="text-sm font-medium">{p === "gon" ? "Gon" : "Pau"}</span>
-          <span className="text-xs opacity-70">{p === "gon" ? "(64%)" : "(36%)"}</span>
+          <span className="text-xs opacity-70">{`(${Math.round(split[p] * 100)}%)`}</span>
         </button>
       ))}
     </div>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">Ver perspectiva de:</span>
-        <PersonToggle value={person} onChange={setPerson} />
+        <PersonToggle value={person} onChange={setPerson} split={getSplit(`${year}-${String(month).padStart(2, "0")}-01`)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
