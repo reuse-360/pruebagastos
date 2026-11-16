@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCLP, SPLIT_GON, SPLIT_PAU } from "@/lib/constants";
+import { formatCLP, getSplit } from "@/lib/constants";
 import { insertarGasto, actualizarGasto, type QuienPago } from "@/lib/queries";
 
 const QUIEN_OPTIONS: { value: QuienPago; label: string }[] = [
@@ -92,6 +92,7 @@ export function TransactionForm({ onSaved, onSkip, onCancel, preload, editing }:
   const numericAmount = parseInt(amount, 10) || 0;
   const amountDisplay = amount ? `$${Number(amount).toLocaleString("es-CL")}` : "";
   const isAmbos = quienPago === "ambos";
+  const split = getSplit(date);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -218,12 +219,12 @@ export function TransactionForm({ onSaved, onSkip, onCancel, preload, editing }:
             <div className="rounded-lg border bg-muted/50 p-3 space-y-1 text-sm">
               <p className="font-medium text-muted-foreground">Split compartido</p>
               <div className="flex justify-between">
-                <span>Gon (64%)</span>
-                <span className="font-semibold">{formatCLP(numericAmount * SPLIT_GON)}</span>
+                <span>Gon ({Math.round(split.gon * 100)}%)</span>
+                <span className="font-semibold">{formatCLP(numericAmount * split.gon)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Pau (36%)</span>
-                <span className="font-semibold">{formatCLP(numericAmount * SPLIT_PAU)}</span>
+                <span>Pau ({Math.round(split.pau * 100)}%)</span>
+                <span className="font-semibold">{formatCLP(numericAmount * split.pau)}</span>
               </div>
             </div>
           )}
