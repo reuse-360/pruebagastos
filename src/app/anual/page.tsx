@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { fetchAnnualData } from "@/lib/queries";
-import { formatCLP } from "@/lib/constants";
+import { formatCLP, getSplit } from "@/lib/constants";
 import { supabase } from "@/lib/supabase";
 import { ChevronDown } from "lucide-react";
 
@@ -43,7 +43,7 @@ async function saveOptimo(persona: Person, categoria: string, valor: number) {
   }
 }
 
-function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person) => void }) {
+function PersonToggle({ value, onChange, split }: { value: Person; onChange: (p: Person) => void; split: { gon: number; pau: number } }) {
   return (
     <div className="flex rounded-md border border-input overflow-hidden text-sm font-medium">
       {(["gon", "pau"] as Person[]).map((p) => (
@@ -55,7 +55,7 @@ function PersonToggle({ value, onChange }: { value: Person; onChange: (p: Person
           }`}
         >
           <span className="text-sm font-medium">{p === "gon" ? "Gon" : "Pau"}</span>
-          <span className="text-xs opacity-70">{p === "gon" ? "(64%)" : "(36%)"}</span>
+          <span className="text-xs opacity-70">{`(${Math.round(split[p] * 100)}%)`}</span>
         </button>
       ))}
     </div>
@@ -179,7 +179,7 @@ export default function AnualPage() {
 
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">Ver perspectiva de:</span>
-        <PersonToggle value={person} onChange={setPerson} />
+        <PersonToggle value={person} onChange={setPerson} split={getSplit(year === 2026 ? new Date().toLocaleDateString("en-CA") : `${year}-01-01`)} />
       </div>
 
       {/* Tabla */}
